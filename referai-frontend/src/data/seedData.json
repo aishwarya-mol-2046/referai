@@ -1,0 +1,147 @@
+[
+  {
+    "id": "cand_01",
+    "full_name": "Meera Karan",
+    "anonymous_id": "Candidate Alpha",
+    "current_role": "Pre-Final Year Engineering Student (IIT Madras Affiliate)",
+    "target_company": "Stripe",
+    "target_role": "Backend Performance Engineer",
+    "growth_velocity_score": 96,
+    "culture_alignment_score": 92,
+    "network_trust_coefficient": 9.4,
+    "skills_matrix": [
+      { "name": "Distributed Systems Design", "status": "VERIFIED", "proof_of_work": "Built an open-source Raft consensus engine with 800+ GitHub stars." },
+      { "name": "FastAPI & Async IO Optimization", "status": "VERIFIED", "proof_of_work": "Optimized a high-throughput event gateway reducing memory consumption by 34%." },
+      { "name": "Redis Layer Caching Strategies", "status": "VERIFIED", "proof_of_work": "Implemented custom cache eviction algorithms for multi-tenant architectures." },
+      { "name": "Idempotent API Architecture", "status": "MISSING", "proof_of_work": "Requires completion of Micro-Challenge: Design a double-spend prevention fallback system." }
+    ],
+    "alumni_referral_paths": [
+      {
+        "alumnus_name": "Rahul Subramanian",
+        "alumnus_role": "Staff Software Engineer",
+        "alumnus_company": "Stripe",
+        "ghosting_risk": "Low",
+        "response_probability": 94,
+        "vouch_tier": "Tier 1 (High Conversion)",
+        "shared_affinity_context": "Co-authored a parallel processing research paper under Prof. Sharma (IIT-M) in 2024."
+      },
+      {
+        "alumnus_name": "Priya Nair",
+        "alumnus_role": "Senior Systems Architect",
+        "alumnus_company": "Stripe",
+        "ghosting_risk": "Medium",
+        "response_probability": 72,
+        "vouch_tier": "Tier 2 (Medium)",
+        "shared_affinity_context": "Former core maintainer of the same open-source mechatronics toolkit you contributed to."
+      }
+    ]
+  },
+  {
+    "id": "cand_02",
+    "full_name": "Vikramaditya Rao",
+    "anonymous_id": "Candidate Beta",
+    "current_role": "Systems Intern at IISc Bengaluru",
+    "target_company": "Netflix",
+    "target_role": "Core Infrastructure Engineer",
+    "growth_velocity_score": 98,
+    "culture_alignment_score": 89,
+    "network_trust_coefficient": 9.7,
+    "skills_matrix": [
+      { "name": "eBPF Linux Kernel Observability", "status": "VERIFIED", "proof_of_work": "Authored custom eBPF probes tracking network packet latency at the socket layer." },
+      { "name": "C++ Concurrent Memory Models", "status": "VERIFIED", "proof_of_work": "Designed a lock-free ring buffer queue achieving sub-microsecond serialization." },
+      { "name": "Distributed Stream Processing", "status": "MISSING", "proof_of_work": "Requires completion of Micro-Challenge: Optimize low-latency cluster aggregation via Apache Flink." }
+    ],
+    "alumni_referral_paths": [
+      {
+        "alumnus_name": "Siddharth Verma",
+        "alumnus_role": "Principal Infrastructure Lead",
+        "alumnus_company": "Netflix",
+        "ghosting_risk": "Low",
+        "response_probability": 91,
+        "vouch_tier": "Tier 1 (High Conversion)",
+        "shared_affinity_context": "Won the VØID hackathon grand prize together as teammates back in 2023."
+      }
+    ]
+  },
+  {
+    "id": "cand_03",
+    "full_name": "Meera Choithramani",
+    "anonymous_id": "Candidate Gamma",
+    "current_role": "Full Stack Dev Lead, NIT Trichy",
+    "target_company": "Vercel",
+    "target_role": "Frontend Engineering Architect",
+    "growth_velocity_score": 91,
+    "culture_alignment_score": 95,
+    "network_trust_coefficient": 8.9,
+    "skills_matrix": [
+      { "name": "AST (Abstract Syntax Tree) Parsers", "status": "VERIFIED", "proof_of_work": "Created a custom Babel plugin optimizing dead-code elimination for runtime stylesheets." },
+      { "name": "Edge Computing Middleware", "status": "VERIFIED", "proof_of_work": "Deployed geo-distributed authentication handlers executing sub-15ms globally." },
+      { "name": "WASM (WebAssembly) Compilation Bridges", "status": "MISSING", "proof_of_work": "Requires completion of Micro-Challenge: Port a heavy image-processing layer from C++ to Rust WASM." }
+    ],
+    "alumni_referral_paths": [
+      {
+        "alumnus_name": "Ananya Hegde",
+        "alumnus_role": "Senior Developer Relations Engineer",
+        "alumnus_company": "Vercel",
+        "ghosting_risk": "Low",
+        "response_probability": 88,
+        "vouch_tier": "Tier 1 (High Conversion)",
+        "shared_affinity_context": "Served as successive presidents of the NIT-T Open Source Society."
+      }
+    ]
+  },
+  {
+    "id": "cand_04",
+    "full_name": "Rohan Deshmukh",
+    "anonymous_id": "Candidate Delta",
+    "current_role": "Distributed Systems Graduate Student (BITS Pilani)",
+    "target_company": "Snowflake",
+    "target_role": "Database Engine Engineer",
+    "growth_velocity_score": 94,
+    "culture_alignment_score": 85,
+    "network_trust_coefficient": 9.2,
+    "skills_matrix": [
+      { "name": "LSM-Tree Storage Engine Architecture", "status": "VERIFIED", "proof_of_work": "Built a persistent key-value store featuring concurrent memtable flushing and compaction algorithms." },
+      { "name": "Query Execution Engine Optimization", "status": "VERIFIED", "proof_of_work": "Optimized a vectorized columnar processing engine using SIMD assembly operations." },
+      { "name": "Distributed Transaction Protocols (2PC)", "status": "MISSING", "proof_of_work": "Requires completion of Micro-Challenge: Handle arbitrary network partitions inside an active Raft sub-cluster." }
+    ],
+    "alumni_referral_paths": [
+      {
+        "alumnus_name": "Kabir Mehta",
+        "alumnus_role": "Distinguished Engineer",
+        "alumnus_company": "Snowflake",
+        "ghosting_risk": "Low",
+        "response_probability": 96,
+        "vouch_tier": "Tier 1 (High Conversion)",
+        "shared_affinity_context": "Your current thesis supervisor is Kabir's former PhD mentor."
+      }
+    ]
+  },
+  {
+    "id": "cand_05",
+    "full_name": "Tanmay Agarwal",
+    "anonymous_id": "Candidate Epsilon",
+    "current_role": "Machine Learning Engineer, IIT Bombay",
+    "target_company": "OpenAI",
+    "target_role": "Model Slicing & Infrastructure Engineer",
+    "growth_velocity_score": 99,
+    "culture_alignment_score": 97,
+    "network_trust_coefficient": 9.9,
+    "skills_matrix": [
+      { "name": "Tensor Parallelism Strategies", "status": "VERIFIED", "proof_of_work": "Scaled a 70B parameter model pipeline architecture across distributed clusters using Megatron-LM constructs." },
+      { "name": "Custom CUDA Kernel Implementation", "status": "VERIFIED", "proof_of_work": "Wrote optimized FlashAttention memory-bound kernel architectures directly targeting Hopper H100 cards." },
+      { "name": "Quantization Engine Mechanics", "status": "MISSING", "proof_of_work": "Requires completion of Micro-Challenge: Implement a dynamic, loss-less 4-bit block-wise scaling vector module." }
+    ],
+    "alumni_referral_paths": [
+      {
+        "alumnus_name": "Dr. Devendra Rathore",
+        "alumnus_role": "Research Scientist (Alignment Team)",
+        "alumnus_company": "OpenAI",
+        "ghosting_risk": "Medium",
+        "response_probability": 79,
+        "vouch_tier": "Tier 1 (High Conversion)",
+        "shared_affinity_context": "Both received the President's Gold Medal at IIT Bombay for outstanding undergraduate engineering research."
+      }
+    ]
+  }
+]

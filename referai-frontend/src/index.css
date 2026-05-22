@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: linear-gradient(135deg, #090D16 0%, #0B0F19 100%);
+  color: white;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.4s ease-out;
+}
+
+/* Design Token Utilities */
+.bg-canvas {
+  @apply bg-[#090D16];
+}
+
+.bg-card-surface {
+  @apply bg-[#111827];
+}
+
+.text-muted-primary {
+  @apply text-[#64748B];
+}
+
+.text-muted-secondary {
+  @apply text-[#94A3B8];
+}
+
+.text-brand-blue {
+  @apply text-[#2563EB];
+}
