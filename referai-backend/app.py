@@ -10769,25 +10769,36 @@ SEED_EMPLOYEES = [   {   'bio': 'Junior Backend Engineer at Stripe working on sc
         'skills': ['Python', 'Node.js', 'PostgreSQL', 'Redis', 'Kafka', 'gRPC', 'FastAPI'],
         'vouch_tier': 'Tier 1'}]
 
+def _as_list(val):
+    """Return val as a Python list regardless of whether it came in as a list or JSON string."""
+    if isinstance(val, list):
+        return val
+    if isinstance(val, str):
+        return jl(val)
+    return []
+
+
 def user_signal_text(user):
-    """Build a text signal for a user for cosine similarity."""
-    edu = " ".join(e.get("college","") + " " + e.get("branch","") for e in jl(user.get("education","[]") if isinstance(user.get("education"), str) else json.dumps(user.get("education", []))))
-    exp = " ".join(e.get("description","") + " " + e.get("role","") for e in jl(user.get("experience","[]") if isinstance(user.get("experience"), str) else json.dumps(user.get("experience", []))))
+    skills = _as_list(user.get("skills"))
+    education = _as_list(user.get("education"))
+    experience = _as_list(user.get("experience"))
+    edu = " ".join(e.get("college", "") + " " + e.get("branch", "") for e in education)
+    exp = " ".join(e.get("description", "") + " " + e.get("role", "") for e in experience)
     return " ".join(filter(None, [
-        user.get("name",""), user.get("current_role",""), user.get("target_role",""),
-        " ".join(jl(user.get("skills","[]") if isinstance(user.get("skills"), str) else json.dumps(user.get("skills", [])))),
-        user.get("summary",""), edu, exp,
+        user.get("name", ""), user.get("current_role", ""), user.get("target_role", ""),
+        " ".join(skills), user.get("summary", ""), edu, exp,
     ]))
 
 
 def employee_signal_text(emp):
-    """Build a text signal for an employee for cosine similarity."""
-    edu = " ".join(e.get("college","") + " " + e.get("branch","") for e in jl(emp.get("education","[]") if isinstance(emp.get("education"), str) else json.dumps(emp.get("education", []))))
-    exp = " ".join(e.get("description","") + " " + e.get("role","") for e in jl(emp.get("experience","[]") if isinstance(emp.get("experience"), str) else json.dumps(emp.get("experience", []))))
+    skills = _as_list(emp.get("skills"))
+    education = _as_list(emp.get("education"))
+    experience = _as_list(emp.get("experience"))
+    edu = " ".join(e.get("college", "") + " " + e.get("branch", "") for e in education)
+    exp = " ".join(e.get("description", "") + " " + e.get("role", "") for e in experience)
     return " ".join(filter(None, [
-        emp.get("name",""), emp.get("role",""), emp.get("department",""),
-        " ".join(jl(emp.get("skills","[]") if isinstance(emp.get("skills"), str) else json.dumps(emp.get("skills", [])))),
-        emp.get("bio",""), edu, exp,
+        emp.get("name", ""), emp.get("role", ""), emp.get("department", ""),
+        " ".join(skills), emp.get("bio", ""), edu, exp,
     ]))
 
 
@@ -10810,15 +10821,15 @@ def _deserialize_job(row):
         return None
     return {
         **row,
-        "skills": jl(row["skills"]),
-        "profiles": jl(row["profiles"]),
-        "demo_candidates": jl(row["demo_candidates"]),
-        "contact_routes": jl(row["contact_routes"]),
-        "emails": jl(row["emails"]),
-        "phones": jl(row["phones"]),
-        "extraction_notes": jl(row["extraction_notes"]),
-        "is_live_extract": bool(row["is_live_extract"]),
-        "is_demo_company": bool(row["is_demo_company"]),
+        "skills": jl(row.get("skills", "[]")),
+        "profiles": jl(row.get("profiles", "[]")),
+        "demo_candidates": jl(row.get("demo_candidates", "[]")),
+        "contact_routes": jl(row.get("contact_routes", "[]")),
+        "emails": jl(row.get("emails", "[]")),
+        "phones": jl(row.get("phones", "[]")),
+        "extraction_notes": jl(row.get("extraction_notes", "[]")),
+        "is_live_extract": bool(row.get("is_live_extract", 0)),
+        "is_demo_company": bool(row.get("is_demo_company", 0)),
     }
 
 
@@ -12189,14 +12200,41 @@ def career_companion():
         user = _deserialize_user(row) if row else {}
     if not job:
         return jsonify({"error": "Job not found."}), 404
+
+    user_skills = set(s.lower() for s in _as_list(user.get("skills")))
+    job_skills = set(s.lower() for s in (job.get("skills") or []))
+    matched = user_skills & job_skills
+    missing = job_skills - user_skills
+    skill_overlap = round(len(matched) / max(len(job_skills), 1) * 100) if job_skills else 50
+    readiness_score = min(95, max(30, skill_overlap + 15))
+
+    agents = [
+        {
+            "name": "Skill Gap Agent",
+            "score": f"{skill_overlap}%",
+            "finding": f"{len(matched)} of {len(job_skills)} required skills matched." if job_skills else "No required skills listed.",
+            "action": f"Strengthen: {', '.join(list(missing)[:3])}." if missing else "All required skills covered.",
+        },
+        {
+            "name": "Opportunity Agent",
+            "score": f"{readiness_score}%",
+            "finding": "Profile aligned with role requirements based on skill and background overlap.",
+            "action": "Send a referral request to a matched employee at this company.",
+        },
+    ]
+
     llm = free_llm_generate(
-        f"You are ReferAI career coach. Give 3 practical tips for: {user.get('name','User')}, "
-        f"targeting {job.get('role')} at {job.get('company')}. Skills: {', '.join(user.get('skills', [])[:5])}."
+        f"You are ReferAI career coach. Give 3 concise practical tips for {user.get('name', 'a candidate')} "
+        f"targeting {job.get('role')} at {job.get('company')}. "
+        f"Their skills: {', '.join(list(user_skills)[:5])}. Missing: {', '.join(list(missing)[:3]) or 'none'}."
     )
     return jsonify({"copilot": {
-        "user": user, "job": job,
-        "llm_summary": llm["text"] or "Start Ollama for LLM coaching. Match your skills against the job description and identify the top 3 gaps.",
+        "readiness_score": readiness_score,
+        "user": user,
+        "job": job,
+        "llm_summary": llm["text"] or "Match your skills against the job description, close the top gap, and reach out to the highest-match employee.",
         "llm": {"active": llm["active"], "provider": llm["provider"], "model": llm["model"]},
+        "agents": agents,
     }})
 
 

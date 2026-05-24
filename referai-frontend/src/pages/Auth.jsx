@@ -22,6 +22,9 @@ const Auth = ({ mode, onSubmit, onBack, theme, onToggleTheme }) => {
     event.preventDefault();
     setError("");
     setStatus("");
+    if (!form.email.trim()) { setError("Email is required."); return; }
+    if (!form.password) { setError("Password is required."); return; }
+    if (isSignup && !form.name.trim()) { setError("Name is required."); return; }
     setLoading(true);
     try {
       const response = isSignup ? await authSignup(form) : await authLogin(form);

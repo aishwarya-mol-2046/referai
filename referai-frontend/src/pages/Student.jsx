@@ -17,6 +17,7 @@ const Student = ({ user }) => {
   const [requestResult, setRequestResult] = useState(null);
   const [jobConfidence, setJobConfidence] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
 
   const analyzeOpportunity = async () => {
@@ -52,6 +53,7 @@ const Student = ({ user }) => {
 
   const loadEmployeeDetails = async (employee, currentJob) => {
     const targetJob = currentJob || job;
+    setDetailLoading(true);
     try {
       const [aiPlan, intro] = await Promise.all([
         getCareerCompanion({ userId: user?.id, jobId: targetJob.id, job: targetJob, profile: user }),
@@ -61,12 +63,16 @@ const Student = ({ user }) => {
       setMessage(intro.message);
     } catch {
       setMessage(buildFallbackMessage(targetJob, employee, user));
+    } finally {
+      setDetailLoading(false);
     }
   };
 
   const selectEmployee = async (employee) => {
     setSelected(employee);
     setRequestResult(null);
+    setCopilot(null);
+    setMessage("");
     await loadEmployeeDetails(employee, job);
   };
 
@@ -181,7 +187,11 @@ const Student = ({ user }) => {
 
         {selected ? (
           <div className="space-y-6">
-            {copilot && (
+            {detailLoading && (
+              <div className="surface-flat p-5 text-sm font-bold text-muted">Loading details…</div>
+            )}
+
+            {!detailLoading && copilot && (
               <div className="surface-flat p-5">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                   <div>
@@ -258,12 +268,16 @@ const Student = ({ user }) => {
               <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-4 text-sm leading-6 text-slate-100">
                 {message}
               </pre>
-              <button onClick={requestReferral} className="btn-primary mt-4 px-5 py-3 text-sm">
-                Request referral
+              <button
+                onClick={requestReferral}
+                disabled={!message || detailLoading || !!requestResult}
+                className="btn-primary mt-4 px-5 py-3 text-sm disabled:opacity-50"
+              >
+                {requestResult ? "Request sent" : "Request referral"}
               </button>
               {requestResult && (
                 <p className="mt-3 rounded-lg soft p-3 text-sm font-black text-main">
-                  Referral request sent. Reward ${requestResult.reward}.
+                  Request sent to {requestResult.employee?.name || selected.name}. Reward ${requestResult.reward}.
                 </p>
               )}
             </div>

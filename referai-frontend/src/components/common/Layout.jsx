@@ -3,7 +3,6 @@ import Sidebar from "./Sidebar";
 
 const mobileItemsByRole = {
   employee: [["opportunities", "Jobs"]],
-  recruiter: [["recruiter", "Review Queue"]],
 };
 
 const Layout = ({ children, setPage, currentPage, user, onLogout, theme, onToggleTheme }) => {
