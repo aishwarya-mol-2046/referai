@@ -10789,12 +10789,16 @@ def user_signal_text(user):
     education = _as_list(user.get("education"))
     experience = _as_list(user.get("experience"))
     interests = _as_list(user.get("interests"))
-    target_companies = _as_list(user.get("target_companies"))
-    edu = " ".join((e.get("college") or "") + " " + (e.get("branch") or "") for e in education)
-    exp = " ".join((e.get("description") or "") + " " + (e.get("role") or "") for e in experience)
+    # Fall back to legacy target_company (singular) when the array field is empty
+    target_companies = _as_list(user.get("target_companies")) or (
+        [user["target_company"]] if user.get("target_company") else []
+    )
+    edu = " ".join(" ".join(filter(None, [e.get("college"), e.get("branch")])) for e in education)
+    exp = " ".join(" ".join(filter(None, [e.get("role"), e.get("description")])) for e in experience)
+    skills_safe = [s for s in skills if isinstance(s, str)]
     return " ".join(filter(None, [
         user.get("name", ""), user.get("current_role", ""), user.get("target_role", ""),
-        " ".join(skills), " ".join(interests), " ".join(target_companies),
+        " ".join(skills_safe), " ".join(interests), " ".join(target_companies),
         user.get("summary", ""), edu, exp,
     ]))
 
@@ -10803,11 +10807,12 @@ def employee_signal_text(emp):
     skills = _as_list(emp.get("skills"))
     education = _as_list(emp.get("education"))
     experience = _as_list(emp.get("experience"))
-    edu = " ".join((e.get("college") or "") + " " + (e.get("branch") or "") for e in education)
-    exp = " ".join((e.get("description") or "") + " " + (e.get("role") or "") for e in experience)
+    edu = " ".join(" ".join(filter(None, [e.get("college"), e.get("branch")])) for e in education)
+    exp = " ".join(" ".join(filter(None, [e.get("role"), e.get("description")])) for e in experience)
+    skills_safe = [s for s in skills if isinstance(s, str)]
     return " ".join(filter(None, [
         emp.get("name", ""), emp.get("role", ""), emp.get("department", ""),
-        " ".join(skills), emp.get("bio", ""), edu, exp,
+        " ".join(skills_safe), emp.get("bio", ""), edu, exp,
     ]))
 
 
@@ -12365,7 +12370,7 @@ def career_companion():
     if not job:
         return jsonify({"error": "Job not found."}), 404
 
-    user_skills = set(s.lower() for s in _as_list(user.get("skills")))
+    user_skills = set(s.lower() for s in _as_list(user.get("skills")) if isinstance(s, str))
     job_skills = set(s.lower() for s in (job.get("skills") or []))
     matched = user_skills & job_skills
     missing = job_skills - user_skills
@@ -12629,9 +12634,9 @@ def hydrate_request(referral_request):
     employee = find_employee(referral_request.get("employee_id"))
     return {
         **referral_request,
-        "user": user,
-        "job": job,
-        "employee": employee,
+        "user": user or {},
+        "job": job or {},
+        "employee": employee or {},
     }
 
 
