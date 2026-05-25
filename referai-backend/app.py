@@ -12594,9 +12594,8 @@ def update_profile():
     )
     # Education is sent as the complete list from the frontend editor, so replace directly.
     merged_education = _as_list(payload.get("education", []))
-    merged_experience = merge_list_dedup(
-        _as_list(user.get("experience")), _as_list(payload.get("experience", [])), exp_key
-    )
+    # Experience is sent as the complete list from the frontend editor, so replace directly.
+    merged_experience = _as_list(payload.get("experience", []))
     merged_interests = merge_list_dedup(
         _as_list(user.get("interests")), _as_list(payload.get("interests", [])), str_key
     )
