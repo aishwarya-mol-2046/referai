@@ -11031,15 +11031,31 @@ def extract_job_regex_fallback(text):
     )
     skills = list(dict.fromkeys(s.strip() for s in skill_keywords))
 
-    # Try to extract company from "at Company" or "Company is hiring" patterns
+    # Try to extract company — multiple patterns in priority order
     company = ""
-    company_match = re.search(r"(?:at|@)\s+([A-Z][A-Za-z0-9& ]{1,30}?)(?:\s*[,.|]|\s+is\s|\s+we\b)", text)
-    if company_match:
-        company = company_match.group(1).strip()
+    # Pattern 1: "Company - XYZ" or "Company: XYZ" at end of text (LinkedIn/Amazon format)
+    m = re.search(r"Company\s*[-:]\s*([A-Za-z][A-Za-z0-9&., ]{1,60}?)(?:\s*\n|$)", text, re.IGNORECASE)
+    if m:
+        company = m.group(1).strip().rstrip(".,")
+    # Pattern 2: "at Company" pattern in body text
+    if not company:
+        m = re.search(r"(?:^|\s)at\s+([A-Z][A-Za-z0-9& ]{1,30}?)(?:\s*[,.|]|\s+is\s|\s+we\b)", text)
+        if m:
+            company = m.group(1).strip()
+    # Pattern 3: "About The Team … at Company"
+    if not company:
+        m = re.search(r"team\s+at\s+([A-Z][A-Za-z0-9& ]{1,30}?)(?:\s*[,.\n])", text)
+        if m:
+            company = m.group(1).strip()
 
     # Try to find role from first non-empty line or a heading pattern
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     role = lines[0][:80] if lines else ""
+    # Skip boilerplate first lines like "About the job" / "Description"
+    for line in lines:
+        if len(line) > 10 and line.lower() not in ("about the job", "description", "job description"):
+            role = line[:80]
+            break
 
     return {
         "role": role,
@@ -12416,13 +12432,51 @@ def _gh_request(path):
 
 
 def _github_company_slug(company):
-    """Normalise company name to a likely GitHub org slug."""
+    """Normalise company name to a likely GitHub org slug.
+
+    Handles legal entity names like 'Amazon Spain Services, S.L.U.' by
+    checking substring patterns before falling back to exact slug lookup.
+    """
     slug = re.sub(r"[^a-z0-9]+", "", company.lower())
-    aliases = {
-        "googleinc": "google", "meta": "facebook",
-        "amazonwebservices": "aws", "flipkartincubator": "flipkart-incubator",
-    }
-    return aliases.get(slug, slug)
+
+    # Substring-based detection — handles legal entity variants
+    # (e.g. 'Amazon Spain Services S.L.U.' → slug contains 'amazon')
+    if "amazon" in slug and "amazonwebservices" not in slug and "aws" not in slug:
+        return "amzn"
+    if "amazonwebservices" in slug or slug == "aws":
+        return "aws"
+    if "google" in slug and "deepmind" not in slug:
+        return "google"
+    if "googledeepmind" in slug:
+        return "google-deepmind"
+    if "meta" in slug or "facebook" in slug:
+        return "facebook"
+    if "microsoft" in slug:
+        return "microsoft"
+    if "netflix" in slug:
+        return "netflix"
+    if "apple" in slug and "pineapple" not in slug:
+        return "apple"
+    if "uber" in slug:
+        return "uber"
+    if "stripe" in slug:
+        return "stripe"
+    if "flipkart" in slug:
+        return "flipkart"
+    if "twitter" in slug or "xcorp" in slug:
+        return "twitter"
+
+    return slug
+
+
+# Secondary org slugs to also try — for companies with multiple GitHub orgs.
+# e.g., Amazon has 'amzn' (main) and 'aws' (cloud); Ring is under Amazon.
+_COMPANY_EXTRA_ORGS = {
+    "amzn":     ["aws", "ring-doorbell", "alexa"],
+    "google":   ["googlecloudplatform", "googlechrome", "googlecodelabs"],
+    "microsoft":["azure", "dotnet", "aspnet"],
+    "facebook": ["facebookresearch", "facebookincubator"],
+}
 
 
 _KNOWN_ROLE_TITLES = [
@@ -12621,16 +12675,29 @@ def fetch_github_employees(company, job_signal="", max_results=20):
     logins_seen = set()
     all_logins = []
 
-    # 1. Org members (core API — no search rate limit)
-    org_members = _gh_request(f"/orgs/{slug}/members?per_page=30")
-    if isinstance(org_members, list):
-        for m in org_members:
-            lg = m.get("login")
-            if lg and lg not in logins_seen:
-                logins_seen.add(lg)
-                all_logins.append(lg)
+    def _collect_org_members(org_slug, limit=30):
+        """Collect member logins from a GitHub org into all_logins."""
+        members = _gh_request(f"/orgs/{org_slug}/members?per_page={limit}")
+        if isinstance(members, list):
+            for m in members:
+                lg = m.get("login")
+                if lg and lg not in logins_seen:
+                    logins_seen.add(lg)
+                    all_logins.append(lg)
 
-    # 2. User search by company name (search API)
+    # 1. Org members for primary slug (core API — no search rate limit)
+    _collect_org_members(slug, limit=30)
+
+    # 1b. Extra orgs for companies that have multiple GitHub orgs
+    #     e.g. Amazon → also try 'aws', 'ring-doorbell', 'alexa'
+    for extra_org in _COMPANY_EXTRA_ORGS.get(slug, []):
+        if len(all_logins) < max_results:
+            _collect_org_members(extra_org, limit=15)
+
+    # 2. User search by company name (search API).
+    #    Note: many large companies (Amazon, Google) have employees who don't
+    #    fill in the company field, so this often returns 0. We still try it as
+    #    a supplement — it finds employees who *do* list the company name.
     q_company = f'type:user+company:"{_q(company)}"'
     search1 = _gh_request(f"/search/users?q={q_company}&per_page=15")
     if isinstance(search1, dict):
@@ -12640,14 +12707,14 @@ def fetch_github_employees(company, job_signal="", max_results=20):
                 logins_seen.add(lg)
                 all_logins.append(lg)
 
-    # 3. Keyword-enriched search — adds job-relevant people at the company
-    #    e.g. company:"Stripe" python distributed   →  finds engineers who mention
-    #    those skills in their bio/repos, narrowing to likely-relevant profiles.
-    if job_signal:
+    # 3. Keyword-enriched org search — find org members who match the job's
+    #    keywords. Useful when org members list is large (e.g. amzn has 1000s).
+    #    Query: org:{slug} {keywords}  — searches within org members' profiles.
+    if job_signal and all_logins:
         kws = _job_search_keywords(job_signal, max_keywords=3)
         if kws:
             kw_str = "+".join(_q(k) for k in kws)
-            q_kw = f'type:user+company:"{_q(company)}"+{kw_str}'
+            q_kw = f'type:user+org:{slug}+{kw_str}'
             search2 = _gh_request(f"/search/users?q={q_kw}&per_page=10")
             if isinstance(search2, dict):
                 for u in search2.get("items", []):
@@ -12655,6 +12722,21 @@ def fetch_github_employees(company, job_signal="", max_results=20):
                     if lg and lg not in logins_seen:
                         logins_seen.add(lg)
                         all_logins.append(lg)
+
+    # 3b. If still nothing found, try keyword-only search (no org/company filter)
+    #     This is a last resort — returns GitHub users globally who mention the
+    #     company name and job keywords, which usually finds relevant people.
+    if not all_logins and job_signal:
+        kws = _job_search_keywords(job_signal, max_keywords=2)
+        company_kw = re.sub(r"[^a-zA-Z0-9 ]+", "", company).strip().split()[0]  # first word only
+        q_fallback = f'type:user+{_q(company_kw)}+{"+".join(_q(k) for k in kws)}'
+        search3 = _gh_request(f"/search/users?q={q_fallback}&per_page=15")
+        if isinstance(search3, dict):
+            for u in search3.get("items", []):
+                lg = u.get("login")
+                if lg and lg not in logins_seen:
+                    logins_seen.add(lg)
+                    all_logins.append(lg)
 
     if not all_logins:
         return []
