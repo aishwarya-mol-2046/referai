@@ -12431,52 +12431,236 @@ def _gh_request(path):
         return None
 
 
+# ---------------------------------------------------------------------------
+# Company → GitHub org resolution
+# ---------------------------------------------------------------------------
+
+# Step 1: Strip legal-entity suffixes before any lookup.
+# Handles: Inc., LLC, Ltd., GmbH, S.L.U., S.A., B.V., Pte. Ltd., etc.
+_LEGAL_SUFFIX_RE = re.compile(
+    r"[\s,]+(inc\.?|llc\.?|l\.l\.c\.?|ltd\.?|limited|corp\.?|corporation|"
+    r"co\.?|gmbh|ag|sa\.?|s\.l\.u?\.?|s\.a\.u?\.?|s\.l\.p?\.?|b\.v\.?|"
+    r"plc\.?|pty\.?\s*ltd\.?|pte\.?\s*ltd\.?|s\.r\.l\.?|s\.p\.a\.?|"
+    r"n\.v\.?|a\.s\.?|a\/s|aps|oü|ab|oy|as\.?)+\s*$",
+    re.IGNORECASE,
+)
+
+# Step 2: Subsidiary → canonical parent slug.
+# Handles subsidiaries/brands that have a different name from their GitHub org.
+_SUBSIDIARY_TO_ORG = {
+    # Amazon subsidiaries
+    "ring":             "ring-doorbell",
+    "wholefoodsmarket": "amzn",
+    "zappos":           "amzn",
+    "audible":          "amzn",
+    "twitch":           "twitchtv",
+    "imdb":             "amzn",
+    # Google / Alphabet subsidiaries
+    "deepmind":         "google-deepmind",
+    "googledeepmind":   "google-deepmind",
+    "waymo":            "waymo-research",
+    "verily":           "google",
+    "calico":           "google",
+    "youtube":          "google",
+    # Meta / Facebook subsidiaries
+    "instagram":        "facebook",
+    "whatsapp":         "facebook",
+    "oculus":           "facebook",
+    "oculusvr":         "facebook",
+    # Microsoft subsidiaries
+    "github":           "github",
+    "linkedin":         "linkedin",
+    "skype":            "microsoft",
+    "mojang":           "microsoft",
+    "nuance":           "microsoft",
+    # Salesforce subsidiaries
+    "slack":            "slackhq",
+    "tableau":          "tableau",
+    "mulesoft":         "mulesoft",
+    "heroku":           "heroku",
+    # Apple subsidiaries
+    "beats":            "apple",
+    "shazam":           "apple",
+    # Google → Fitbit
+    "fitbit":           "google",
+    # Other notable ones
+    "instagram":        "facebook",
+}
+
+# Step 3: Canonical company name (slug form) → GitHub org.
+# Used when the cleaned slug doesn't directly match the GitHub org name.
+_COMPANY_ORG_MAP = {
+    # Big Tech
+    "amazon":               "amzn",
+    "amazonwebservices":    "aws",
+    "aws":                  "aws",
+    "google":               "google",
+    "alphabet":             "google",
+    "meta":                 "facebook",
+    "facebook":             "facebook",
+    "microsoft":            "microsoft",
+    "apple":                "apple",
+    "netflix":              "netflix",
+    "nvidia":               "nvidia",
+    "intel":                "intel",
+    "qualcomm":             "qualcomm",
+    "ibm":                  "ibm",
+    "oracle":               "oracle",
+    "adobe":                "adobe",
+    "salesforce":           "salesforce",
+    "vmware":               "vmware",
+    "redhat":               "redhatofficial",
+    "canonical":            "canonical",
+    "cisco":                "CiscoDevNet",
+    # Cloud / Infra
+    "digitalocean":         "digitalocean",
+    "cloudflare":           "cloudflare",
+    "hashicorp":            "hashicorp",
+    "databricks":           "databricks",
+    "mongodb":              "mongodb",
+    "elastic":              "elastic",
+    "grafana":              "grafana",
+    "confluent":            "confluentinc",
+    "vercel":               "vercel",
+    "netlify":              "netlify",
+    "supabase":             "supabase",
+    "planetscale":          "planetscale",
+    "neon":                 "neondatabase",
+    # Developer tools / SaaS
+    "github":               "github",
+    "gitlab":               "gitlab",
+    "atlassian":            "atlassian",
+    "jira":                 "atlassian",
+    "bitbucket":            "atlassian",
+    "datadog":              "datadog",
+    "newrelic":             "newrelic",
+    "pagerduty":            "pagerduty",
+    "okta":                 "okta",
+    "twilio":               "twilio",
+    "sendgrid":             "sendgrid",
+    "zendesk":              "zendesk",
+    "intercom":             "intercom",
+    "hubspot":              "hubspot",
+    "stripe":               "stripe",
+    "braintree":            "braintree",
+    "paypal":               "paypal",
+    "square":               "square",
+    "shopify":              "shopify",
+    "dropbox":              "dropbox",
+    "box":                  "box",
+    "notion":               "makenotion",
+    "figma":                "figma",
+    # Social / Media
+    "twitter":              "twitter",
+    "x":                    "twitter",
+    "xcorp":                "twitter",
+    "spotify":              "spotify",
+    "snap":                 "snap",
+    "snapchat":             "snap",
+    "pinterest":            "pinterest",
+    "reddit":               "reddit",
+    "discord":              "discord",
+    "slack":                "slackhq",
+    # Ride / Delivery
+    "uber":                 "uber",
+    "lyft":                 "lyft",
+    "doordash":             "doordash",
+    "instacart":            "instacart",
+    "gopuff":               "gopuff",
+    # Indian tech companies
+    "flipkart":             "flipkart",
+    "swiggy":               "swiggy",
+    "zomato":               "zomato",
+    "paytm":                "paytmtech",
+    "razorpay":             "razorpay",
+    "freshworks":           "freshworks",
+    "zoho":                 "zohocrm",
+    "infosys":              "infosys",
+    "wipro":                "wipro",
+    "ola":                  "ola-electric",
+    "dream11":              "dream11",
+    "groww":                "groww",
+    "phonepe":              "phonepe",
+    "cred":                 "cred-club",
+    "meesho":               "meesho",
+    "zepto":                "zeptoteam",
+    # Finance
+    "robinhood":            "robinhood",
+    "plaid":                "plaid",
+    "chime":                "chime",
+    "brex":                 "brexhq",
+    "nubank":               "nubank",
+    "revolut":              "revolut",
+    "wise":                 "transferwise",
+    "transferwise":         "transferwise",
+    # Other notable
+    "airbnb":               "airbnb",
+    "coinbase":             "coinbase",
+    "openai":               "openai",
+    "anthropic":            "anthropics",
+    "deepseek":             "deepseek-ai",
+    "mistral":              "mistralai",
+    "huggingface":          "huggingface",
+    "palantir":             "palantir",
+    "snowflake":            "snowflakedb",
+    "dbt":                  "dbt-labs",
+    "airbyte":              "airbytehq",
+    "fivetran":             "fivetran",
+    "stitch":               "stitchdata",
+}
+
+# Secondary orgs — for companies with multiple meaningful GitHub orgs.
+# The primary org (from _COMPANY_ORG_MAP) is searched first; these supplement.
+_COMPANY_EXTRA_ORGS = {
+    "amzn":         ["aws", "ring-doorbell", "twitchtv", "alexa"],
+    "google":       ["googlecloudplatform", "googlechrome", "google-deepmind"],
+    "microsoft":    ["azure", "dotnet", "aspnet", "github", "linkedin"],
+    "facebook":     ["facebookresearch", "facebookincubator", "pytorch"],
+    "apple":        ["apple"],
+    "netflix":      ["netflixoss"],
+    "atlassian":    ["atlassian-labs"],
+    "hashicorp":    ["hashicorp-education"],
+    "salesforce":   ["forcedotcom", "slackhq", "heroku"],
+}
+
+
 def _github_company_slug(company):
-    """Normalise company name to a likely GitHub org slug.
+    """Normalise any company name (including legal entities) to a GitHub org slug.
 
-    Handles legal entity names like 'Amazon Spain Services, S.L.U.' by
-    checking substring patterns before falling back to exact slug lookup.
+    Resolution order:
+      1. Strip legal-entity suffixes (Inc., S.L.U., GmbH, etc.)
+      2. Check subsidiary map  (Ring → ring-doorbell, Instagram → facebook)
+      3. Check canonical company → org map  (Amazon → amzn, Google → google)
+      4. Return cleaned slug as-is (works for most startups / smaller companies)
     """
-    slug = re.sub(r"[^a-z0-9]+", "", company.lower())
+    if not company:
+        return ""
 
-    # Substring-based detection — handles legal entity variants
-    # (e.g. 'Amazon Spain Services S.L.U.' → slug contains 'amazon')
-    if "amazon" in slug and "amazonwebservices" not in slug and "aws" not in slug:
-        return "amzn"
-    if "amazonwebservices" in slug or slug == "aws":
-        return "aws"
-    if "google" in slug and "deepmind" not in slug:
-        return "google"
-    if "googledeepmind" in slug:
-        return "google-deepmind"
-    if "meta" in slug or "facebook" in slug:
-        return "facebook"
-    if "microsoft" in slug:
-        return "microsoft"
-    if "netflix" in slug:
-        return "netflix"
-    if "apple" in slug and "pineapple" not in slug:
-        return "apple"
-    if "uber" in slug:
-        return "uber"
-    if "stripe" in slug:
-        return "stripe"
-    if "flipkart" in slug:
-        return "flipkart"
-    if "twitter" in slug or "xcorp" in slug:
-        return "twitter"
+    # Strip trailing legal suffixes iteratively (e.g. "Inc., Ltd" needs two passes)
+    name = company.strip()
+    for _ in range(3):
+        cleaned = _LEGAL_SUFFIX_RE.sub("", name)
+        if cleaned == name:
+            break
+        name = cleaned
+
+    slug = re.sub(r"[^a-z0-9]+", "", name.lower())
+
+    # Subsidiary check first (Ring, Instagram, YouTube, etc.)
+    if slug in _SUBSIDIARY_TO_ORG:
+        return _SUBSIDIARY_TO_ORG[slug]
+
+    # Canonical company map (handles Amazon → amzn, Google → google, etc.)
+    if slug in _COMPANY_ORG_MAP:
+        return _COMPANY_ORG_MAP[slug]
+
+    # Prefix/substring match — handles "AmazonSpainServices" → amazon → amzn.
+    # Only run if the exact slug wasn't found above.
+    for key, org in _COMPANY_ORG_MAP.items():
+        if len(key) >= 4 and slug.startswith(key):
+            return org
 
     return slug
-
-
-# Secondary org slugs to also try — for companies with multiple GitHub orgs.
-# e.g., Amazon has 'amzn' (main) and 'aws' (cloud); Ring is under Amazon.
-_COMPANY_EXTRA_ORGS = {
-    "amzn":     ["aws", "ring-doorbell", "alexa"],
-    "google":   ["googlecloudplatform", "googlechrome", "googlecodelabs"],
-    "microsoft":["azure", "dotnet", "aspnet"],
-    "facebook": ["facebookresearch", "facebookincubator"],
-}
 
 
 _KNOWN_ROLE_TITLES = [
