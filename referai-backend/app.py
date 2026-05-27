@@ -11153,8 +11153,6 @@ GITHUB_API = "https://api.github.com"
 # Web search — Google Custom Search API (free 100 queries/day)
 # Create CSE: https://programmablesearchengine.google.com/
 # Get API key: https://console.cloud.google.com/apis/credentials
-GOOGLE_CSE_API_KEY = os.environ.get("GOOGLE_CSE_API_KEY", "")
-GOOGLE_CSE_ID      = os.environ.get("GOOGLE_CSE_ID", "")
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "referai.db")
 
@@ -12774,181 +12772,90 @@ def _job_search_keywords(job_signal, max_keywords=3):
 # Web-search snippet employee discovery
 # ---------------------------------------------------------------------------
 
-def _google_cse_search(query, count=10):
-    """
-    Google Custom Search API — returns real Google results for a query.
-
-    Requires GOOGLE_CSE_API_KEY and GOOGLE_CSE_ID in .env.
-    Free tier: 100 queries/day.
-    Returns [{title, url, description}] compatible with _parse_linkedin_snippet().
-    """
-    if not GOOGLE_CSE_API_KEY or not GOOGLE_CSE_ID:
-        return []
-    from urllib.parse import quote as _q
-    url = (
-        f"https://www.googleapis.com/customsearch/v1"
-        f"?key={GOOGLE_CSE_API_KEY}&cx={GOOGLE_CSE_ID}"
-        f"&q={_q(query)}&num={min(count, 10)}"
-    )
-    try:
-        with urlopen(Request(url), timeout=15) as r:
-            data = json.loads(r.read())
-        return [
-            {"title": i.get("title", ""), "url": i.get("link", ""), "description": i.get("snippet", "")}
-            for i in data.get("items", [])
-        ]
-    except Exception:
-        return []
-
-
-def _parse_linkedin_snippet(result, company):
-    """
-    Parse one web-search result into an employee dict.
-
-    Handles both Brave and Google result shapes.  Only processes URLs that
-    look like linkedin.com/in/ profile pages.  Returns None for anything
-    that doesn't look like a person profile.
-
-    Typical title formats:
-      "Jane Doe - Senior Engineer at Amazon | LinkedIn"
-      "Jane Doe | LinkedIn"
-      "Jane Doe - LinkedIn"
-    Typical description/snippet:
-      "Jane Doe. Senior Software Engineer at Amazon. Madrid, Spain.
-       Python · AWS · Machine Learning. 500+ connections."
-    """
-    title   = (result.get("title") or "").strip()
-    snippet = (result.get("description") or result.get("snippet") or "").strip()
-    url     = (result.get("url") or result.get("link") or "").strip()
-
-    # Must be a LinkedIn /in/ profile page
-    if "linkedin.com/in/" not in url.lower():
-        return None
-
-    # ---- Extract name -------------------------------------------------------
-    # Strip " | LinkedIn" / " - LinkedIn" suffix then take everything before
-    # the first separator that isnates the role part.
-    raw_title = re.sub(r"\s*[|\-]\s*LinkedIn\s*$", "", title, flags=re.IGNORECASE).strip()
-    # "Jane Doe - Senior Engineer at Amazon"  or  "Jane Doe"
-    name_match = re.match(r"^(.+?)\s*(?:[-–|·]|$)", raw_title)
-    name = name_match.group(1).strip() if name_match else raw_title.strip()
-
-    # Sanity: must look like a real name (2+ words or at least 4 chars, no html)
-    if not name or len(name) < 3 or "<" in name or name.lower() in ("linkedin", "profile"):
-        return None
-
-    # ---- Extract role -------------------------------------------------------
-    # Try title part after name first:  "Jane Doe - Senior Engineer at Amazon"
-    role = ""
-    role_in_title = re.sub(re.escape(name), "", raw_title).strip().lstrip("-–|· ")
-    role_match = re.match(r"^(.+?)\s+at\s+\S", role_in_title, re.IGNORECASE)
-    if role_match:
-        role = role_match.group(1).strip()
-    elif role_in_title:
-        role = role_in_title.split(" at ")[0].strip()
-
-    # Fall back to snippet: "Senior Software Engineer at Amazon."
-    if not role:
-        m = re.search(r"\.?\s*([A-Z][^.]{3,60}?)\s+at\s+" + re.escape(company[:10]),
-                      snippet, re.IGNORECASE)
-        if m:
-            role = m.group(1).strip()
-
-    role = role or "Software Engineer"
-
-    # ---- Extract skills from full text ------------------------------------
-    skills = _extract_skills_from_text(f"{title} {snippet}")
-
-    # ---- Extract location from snippet ------------------------------------
-    location = ""
-    loc_m = re.search(r"([A-Z][a-zA-Z ]{2,25}(?:,\s*[A-Z][a-zA-Z ]{2,20})?)\.\s", snippet)
-    if loc_m:
-        candidate = loc_m.group(1).strip()
-        # Very rough filter: if it contains a digit or is too long, skip
-        if not re.search(r"\d", candidate) and len(candidate) < 40:
-            location = candidate
-
-    return {
-        "id":                   f"li_{uuid4().hex[:10]}",
-        "name":                 name,
-        "company":              company,
-        "company_slug":         _github_company_slug(company),
-        "role":                 role,
-        "department":           "Engineering",
-        "seniority":            "Unknown",
-        "bio":                  snippet[:300],
-        "linkedin_url":         url,
-        "github_url":           "",
-        "email":                "",
-        "skills":               skills,
-        "location":             location,
-        "response_probability": 50,
-        "vouch_tier":           "Tier 2",
-        "reward":               10,
-        "education":            [],
-        "experience":           [],
-        "_source_type":         "snippet",
-    }
+_PROFILE_SEARCH_PROMPT = """List {n} software engineers at {target}{location}{skills}.
+Return ONLY JSON array:
+[{{"name":"Full Name","role":"Job Title","linkedin_url":"https://linkedin.com/in/slug or empty","skills":["skill"]}}]
+No text outside JSON. Empty linkedin_url if unsure."""
 
 
 def fetch_search_snippet_employees(company, job_signal="", subsidiary="", tech_stack=None, location_city="", max_results=15):
-    """
-    Discover employees via Gemini + Google Search grounding.
-
-    Gemini routes each query through Google Search and returns grounded
-    results (real URLs from the live Google index).  We target LinkedIn
-    /in/ profile pages and parse each result into an employee dict.
-
-    Requires: GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID in .env (free 100/day).
-    Results are NOT cached (live search).
-    """
-    if not GOOGLE_CSE_API_KEY or not GOOGLE_CSE_ID:
+    """Find employees using DeepSeek's training knowledge of public profiles."""
+    if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY == "your_deepseek_api_key_here":
         return []
 
     tech_stack = tech_stack or []
-    seen_names: set = set()
-    employees: list = []
-
-    def _add(result):
-        emp = _parse_linkedin_snippet(result, company)
-        if emp and emp["name"].lower() not in seen_names:
-            seen_names.add(emp["name"].lower())
-            employees.append(emp)
-
-    # Build targeted queries — Gemini+Google finds the best LinkedIn profiles
     target = subsidiary or company
-    queries = []
 
-    # 1. Subsidiary-specific (most focused, e.g. "Ring" not "Amazon")
-    if subsidiary and subsidiary.lower() != company.lower():
-        queries.append(f'site:linkedin.com/in "{subsidiary}" software engineer')
+    # Build compact context filters
+    kws = _job_search_keywords(job_signal, max_keywords=3) if job_signal else []
+    ts  = [t for t in tech_stack if len(t) >= 4][:3]
+    skill_hints = list(dict.fromkeys(kws + ts))[:4]
 
-    # 2. Job keywords + company
-    if job_signal:
-        kws = _job_search_keywords(job_signal, max_keywords=2)
-        if kws:
-            queries.append(f'site:linkedin.com/in "{target}" {" ".join(kws)}')
+    skills_str   = f" skilled in {', '.join(skill_hints)}" if skill_hints else ""
+    location_str = f" in {location_city}" if location_city else ""
 
-    # 3. Tech-stack terms + company
-    ts_terms = [t for t in tech_stack if len(t) >= 4][:2]
-    if ts_terms:
-        queries.append(f'site:linkedin.com/in "{target}" {" ".join(ts_terms)}')
+    prompt = _PROFILE_SEARCH_PROMPT.format(
+        n=max_results, target=target,
+        location=location_str, skills=skills_str,
+    )
 
-    # 4. Location-specific
-    if location_city:
-        queries.append(f'site:linkedin.com/in "{target}" {location_city} engineer')
+    payload = json.dumps({
+        "model":       DEEPSEEK_MODEL,
+        "messages":    [{"role": "user", "content": prompt}],
+        "temperature": 0,
+        "max_tokens":  600,
+    }).encode()
+    req = Request(
+        f"{DEEPSEEK_BASE_URL}/chat/completions",
+        data=payload,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+    )
+    try:
+        with urlopen(req, timeout=30) as r:
+            data = json.loads(r.read())
+        raw = data["choices"][0]["message"]["content"]
+        profiles = _parse_llm_json(raw)
+        if not isinstance(profiles, list):
+            return []
+    except Exception:
+        return []
 
-    # 5. Generic fallbacks
-    queries.append(f'site:linkedin.com/in "{target}" software engineer')
-    queries.append(f'site:linkedin.com/in "{target}" developer')
+    employees = []
+    seen = set()
+    for p in profiles:
+        name = (p.get("name") or "").strip()
+        if not name or len(name) < 3 or name.lower() in seen:
+            continue
+        seen.add(name.lower())
 
-    for query in queries:
-        if len(employees) >= max_results:
-            break
-        for result in _google_cse_search(query):
-            _add(result)
-            if len(employees) >= max_results:
-                break
+        # Validate LinkedIn URL — only keep if it genuinely looks like a profile slug
+        raw_url = (p.get("linkedin_url") or "").strip()
+        linkedin_url = ""
+        if re.match(r"https?://(www\.)?linkedin\.com/in/[\w\-]+/?$", raw_url):
+            linkedin_url = raw_url
+
+        skills = [s for s in (p.get("skills") or []) if isinstance(s, str)]
+
+        employees.append({
+            "id":                   f"ds_{uuid4().hex[:10]}",
+            "name":                 name,
+            "company":              company,
+            "company_slug":         _github_company_slug(company),
+            "role":                 (p.get("role") or "Software Engineer").strip(),
+            "department":           "Engineering",
+            "seniority":            "Unknown",
+            "bio":                  "",
+            "linkedin_url":         linkedin_url,
+            "github_url":           "",
+            "email":                "",
+            "skills":               skills,
+            "response_probability": 45,
+            "vouch_tier":           "Tier 2",
+            "reward":               10,
+            "education":            [],
+            "experience":           [],
+            "_source_type":         "ai",
+        })
 
     return employees
 
