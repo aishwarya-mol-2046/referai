@@ -11184,6 +11184,12 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 GITHUB_PAT = os.environ.get("GITHUB_PAT", "")
 GITHUB_API = "https://api.github.com"
 
+# --- Web search (for snippet-based employee discovery) ---
+# Priority: Brave Search (free 2000/mo) → Google Custom Search (free 100/day)
+BRAVE_SEARCH_API_KEY  = os.environ.get("BRAVE_SEARCH_API_KEY", "")
+GOOGLE_CSE_API_KEY    = os.environ.get("GOOGLE_CSE_API_KEY", "")
+GOOGLE_CSE_ID         = os.environ.get("GOOGLE_CSE_ID", "")
+
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "referai.db")
 
 
@@ -12798,17 +12804,240 @@ def _job_search_keywords(job_signal, max_keywords=3):
     return keywords
 
 
+# ---------------------------------------------------------------------------
+# Web-search snippet employee discovery
+# ---------------------------------------------------------------------------
+
+def _brave_search(query, count=10):
+    """Call Brave Search API; return list of result dicts."""
+    if not BRAVE_SEARCH_API_KEY:
+        return []
+    from urllib.parse import quote as _q
+    url = f"https://api.search.brave.com/res/v1/web/search?q={_q(query)}&count={count}"
+    req = Request(url, headers={
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": BRAVE_SEARCH_API_KEY,
+    })
+    try:
+        with urlopen(req, timeout=10) as r:
+            raw = r.read()
+            # Brave may return gzip
+            try:
+                import gzip as _gz
+                raw = _gz.decompress(raw)
+            except Exception:
+                pass
+            data = json.loads(raw)
+        return data.get("web", {}).get("results", [])
+    except Exception:
+        return []
+
+
+def _google_cse_search(query, count=10):
+    """Call Google Custom Search API; return list of result dicts."""
+    if not GOOGLE_CSE_API_KEY or not GOOGLE_CSE_ID:
+        return []
+    from urllib.parse import quote as _q
+    url = (
+        f"https://www.googleapis.com/customsearch/v1"
+        f"?key={GOOGLE_CSE_API_KEY}&cx={GOOGLE_CSE_ID}"
+        f"&q={_q(query)}&num={min(count, 10)}"
+    )
+    try:
+        with urlopen(Request(url), timeout=10) as r:
+            data = json.loads(r.read())
+        # Normalise to same shape as Brave results
+        return [
+            {"title": i.get("title",""), "url": i.get("link",""), "description": i.get("snippet","")}
+            for i in data.get("items", [])
+        ]
+    except Exception:
+        return []
+
+
+def _web_search(query, count=10):
+    """Brave first, Google CSE fallback."""
+    results = _brave_search(query, count)
+    if not results:
+        results = _google_cse_search(query, count)
+    return results
+
+
+def _parse_linkedin_snippet(result, company):
+    """
+    Parse one web-search result into an employee dict.
+
+    Handles both Brave and Google result shapes.  Only processes URLs that
+    look like linkedin.com/in/ profile pages.  Returns None for anything
+    that doesn't look like a person profile.
+
+    Typical title formats:
+      "Jane Doe - Senior Engineer at Amazon | LinkedIn"
+      "Jane Doe | LinkedIn"
+      "Jane Doe - LinkedIn"
+    Typical description/snippet:
+      "Jane Doe. Senior Software Engineer at Amazon. Madrid, Spain.
+       Python · AWS · Machine Learning. 500+ connections."
+    """
+    title   = (result.get("title") or "").strip()
+    snippet = (result.get("description") or result.get("snippet") or "").strip()
+    url     = (result.get("url") or result.get("link") or "").strip()
+
+    # Must be a LinkedIn /in/ profile page
+    if "linkedin.com/in/" not in url.lower():
+        return None
+
+    # ---- Extract name -------------------------------------------------------
+    # Strip " | LinkedIn" / " - LinkedIn" suffix then take everything before
+    # the first separator that isnates the role part.
+    raw_title = re.sub(r"\s*[|\-]\s*LinkedIn\s*$", "", title, flags=re.IGNORECASE).strip()
+    # "Jane Doe - Senior Engineer at Amazon"  or  "Jane Doe"
+    name_match = re.match(r"^(.+?)\s*(?:[-–|·]|$)", raw_title)
+    name = name_match.group(1).strip() if name_match else raw_title.strip()
+
+    # Sanity: must look like a real name (2+ words or at least 4 chars, no html)
+    if not name or len(name) < 3 or "<" in name or name.lower() in ("linkedin", "profile"):
+        return None
+
+    # ---- Extract role -------------------------------------------------------
+    # Try title part after name first:  "Jane Doe - Senior Engineer at Amazon"
+    role = ""
+    role_in_title = re.sub(re.escape(name), "", raw_title).strip().lstrip("-–|· ")
+    role_match = re.match(r"^(.+?)\s+at\s+\S", role_in_title, re.IGNORECASE)
+    if role_match:
+        role = role_match.group(1).strip()
+    elif role_in_title:
+        role = role_in_title.split(" at ")[0].strip()
+
+    # Fall back to snippet: "Senior Software Engineer at Amazon."
+    if not role:
+        m = re.search(r"\.?\s*([A-Z][^.]{3,60}?)\s+at\s+" + re.escape(company[:10]),
+                      snippet, re.IGNORECASE)
+        if m:
+            role = m.group(1).strip()
+
+    role = role or "Software Engineer"
+
+    # ---- Extract skills from full text ------------------------------------
+    skills = _extract_skills_from_text(f"{title} {snippet}")
+
+    # ---- Extract location from snippet ------------------------------------
+    location = ""
+    loc_m = re.search(r"([A-Z][a-zA-Z ]{2,25}(?:,\s*[A-Z][a-zA-Z ]{2,20})?)\.\s", snippet)
+    if loc_m:
+        candidate = loc_m.group(1).strip()
+        # Very rough filter: if it contains a digit or is too long, skip
+        if not re.search(r"\d", candidate) and len(candidate) < 40:
+            location = candidate
+
+    return {
+        "id":                   f"li_{uuid4().hex[:10]}",
+        "name":                 name,
+        "company":              company,
+        "company_slug":         _github_company_slug(company),
+        "role":                 role,
+        "department":           "Engineering",
+        "seniority":            "Unknown",
+        "bio":                  snippet[:300],
+        "linkedin_url":         url,
+        "github_url":           "",
+        "email":                "",
+        "skills":               skills,
+        "location":             location,
+        "response_probability": 50,
+        "vouch_tier":           "Tier 2",
+        "reward":               10,
+        "education":            [],
+        "experience":           [],
+        "_source_type":         "snippet",
+    }
+
+
+def fetch_search_snippet_employees(company, job_signal="", subsidiary="", tech_stack=None, location_city="", max_results=15):
+    """
+    Discover employees via web-search snippets (Brave / Google CSE).
+
+    Builds several targeted queries and deduplicates by name.
+    Returns employee dicts in the same shape as GitHub employees.
+    Results are NOT cached (snippets change; search quota is the limit).
+    """
+    if not (BRAVE_SEARCH_API_KEY or GOOGLE_CSE_API_KEY):
+        return []
+
+    tech_stack = tech_stack or []
+    seen_names: set = set()
+    employees: list = []
+
+    def _add(result):
+        emp = _parse_linkedin_snippet(result, company)
+        if emp and emp["name"].lower() not in seen_names:
+            seen_names.add(emp["name"].lower())
+            employees.append(emp)
+
+    # Build a pool of targeted queries — run them in order, stop early
+    target = subsidiary or company
+    queries = []
+
+    # 1. Subsidiary-specific (most focused)
+    if subsidiary and subsidiary.lower() != company.lower():
+        queries.append(f'site:linkedin.com/in "{subsidiary}" software engineer')
+
+    # 2. Job keywords + company
+    if job_signal:
+        kws = _job_search_keywords(job_signal, max_keywords=2)
+        if kws:
+            queries.append(f'site:linkedin.com/in "{target}" {" ".join(kws)}')
+
+    # 3. Tech-stack terms + company
+    ts_terms = [t for t in tech_stack if len(t) >= 4][:2]
+    if ts_terms:
+        queries.append(f'site:linkedin.com/in "{target}" {" ".join(ts_terms)}')
+
+    # 4. Location-specific
+    if location_city:
+        queries.append(f'site:linkedin.com/in "{target}" {location_city} engineer')
+
+    # 5. Generic fallback
+    queries.append(f'site:linkedin.com/in "{target}" software engineer')
+    queries.append(f'site:linkedin.com/in "{target}" developer')
+
+    for query in queries:
+        if len(employees) >= max_results:
+            break
+        for result in _web_search(query, count=8):
+            _add(result)
+            if len(employees) >= max_results:
+                break
+
+    return employees
+
+
+def _extract_linkedin_from_blog(blog_field):
+    """Return a normalised LinkedIn profile URL if the blog field contains one."""
+    if not blog_field:
+        return ""
+    b = blog_field.strip()
+    if "linkedin.com/in/" in b.lower():
+        # Ensure it has a scheme
+        if not re.match(r"^https?://", b, re.IGNORECASE):
+            b = "https://" + b.lstrip("/")
+        return b
+    return ""
+
+
 def _build_employee(login, profile, company, slug, now_iso_str):
     """Build a normalised employee dict from a GitHub profile response."""
     name = profile.get("name") or login
     # Normalise bio: strip carriage returns, collapse whitespace
     raw_bio = profile.get("bio") or ""
     bio = re.sub(r"\s+", " ", raw_bio.replace("\r\n", " ").replace("\r", " ")).strip()
-    email = profile.get("email") or ""
-    followers = profile.get("followers") or 0
+    email      = profile.get("email") or ""
+    followers  = profile.get("followers") or 0
     github_url = profile.get("html_url") or f"https://github.com/{login}"
-    role = _github_infer_role(bio)
-    # Extract skills from bio text so cosine similarity has something to work with
+    # Many engineers put their LinkedIn URL in the blog/website field
+    linkedin_url = _extract_linkedin_from_blog(profile.get("blog") or "")
+    role   = _github_infer_role(bio)
     skills = _extract_skills_from_text(bio)
 
     db_execute(
@@ -12818,22 +13047,24 @@ def _build_employee(login, profile, company, slug, now_iso_str):
         (slug, login, name, role, bio, email, github_url, j(skills), followers, now_iso_str),
     )
     return {
-        "id": f"gh_{login}",
-        "name": name,
-        "company": company,
-        "company_slug": slug,
-        "role": role,
-        "department": "Engineering",
-        "seniority": "Unknown",
-        "bio": bio,
-        "github_url": github_url,
-        "email": email,
-        "skills": skills,
+        "id":                   f"gh_{login}",
+        "name":                 name,
+        "company":              company,
+        "company_slug":         slug,
+        "role":                 role,
+        "department":           "Engineering",
+        "seniority":            "Unknown",
+        "bio":                  bio,
+        "github_url":           github_url,
+        "linkedin_url":         linkedin_url,
+        "email":                email,
+        "skills":               skills,
         "response_probability": min(90, 50 + followers // 20),
-        "vouch_tier": "Tier 2",
-        "reward": 10,
-        "education": [],
-        "experience": [],
+        "vouch_tier":           "Tier 2",
+        "reward":               10,
+        "education":            [],
+        "experience":           [],
+        "_source_type":         "github",
     }
 
 
@@ -13013,6 +13244,26 @@ def fetch_github_employees(
             continue
         employees.append(_build_employee(login, profile, company, slug, now_str))
 
+    # Supplement with search-snippet employees when GitHub returns few results.
+    # Threshold: if we have fewer than 8 GitHub profiles, pad with snippet-
+    # discovered people so the user always sees a useful list.
+    SNIPPET_SUPPLEMENT_THRESHOLD = 8
+    if len(employees) < SNIPPET_SUPPLEMENT_THRESHOLD:
+        snippet_emps = fetch_search_snippet_employees(
+            company,
+            job_signal=job_signal,
+            subsidiary=subsidiary,
+            tech_stack=tech_stack,
+            location_city=location_city,
+            max_results=max_results - len(employees),
+        )
+        # Deduplicate by name against already-found GitHub profiles
+        gh_names = {e["name"].lower() for e in employees}
+        for emp in snippet_emps:
+            if emp["name"].lower() not in gh_names:
+                employees.append(emp)
+                gh_names.add(emp["name"].lower())
+
     return employees
 
 
@@ -13101,8 +13352,20 @@ def match():
         location_city=job.get("location_city") or "",
     ) if job.get("company") else []
 
-    # Fall back to seed employees if GitHub returns nothing
-    # (company has no GitHub org and no users listing it as employer)
+    # If GitHub returned nothing at all (no org, no users), try search snippets
+    # as a standalone source before touching the seed DB.
+    if not employees:
+        source = "snippet"
+        employees = fetch_search_snippet_employees(
+            job.get("company", ""),
+            job_signal=job_signal,
+            subsidiary=job.get("subsidiary") or "",
+            tech_stack=job.get("tech_stack") or [],
+            location_city=job.get("location_city") or "",
+            max_results=20,
+        )
+
+    # Last resort: seed database (static, demo-quality data)
     if not employees:
         company_slug_key = re.sub(r"[^a-z0-9]+", "", (job.get("company") or "").lower())
         employees = [_deserialize_employee(r) for r in
