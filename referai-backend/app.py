@@ -10910,8 +10910,6 @@ def extract_with_deepseek(resume_text):
         return None
 
 
-
-
 def extract_resume_regex_fallback(text):
     """Best-effort regex extraction when DeepSeek is unavailable."""
     skill_keywords = re.findall(
@@ -10937,9 +10935,6 @@ def extract_resume_regex_fallback(text):
         "current_role": "",
         "summary": summary[:200],
     }
-
-
-
 
 
 _EXTRACT_JOB_PROMPT = """You are a job posting parser. Extract structured information from the job description below.
@@ -10968,8 +10963,6 @@ Rules:
 
 Job description:
 """
-
-
 
 
 def extract_job_with_deepseek(job_text):
@@ -11132,14 +11125,6 @@ def _upsert_job(job):
 EMAIL_RE = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$", re.I)
 PHONE_RE = re.compile(r"^\+?[1-9]\d{9,14}$")
 
-AI_AGENT_WEIGHTS = {
-    "Career Discovery Agent": 0.28,
-    "Skill Gap Agent": 0.26,
-    "Opportunity Access Agent": 0.2,
-    "Work Simulation Agent": 0.16,
-    "Inclusion Guardrail Agent": 0.1,
-}
-
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
 
@@ -11149,10 +11134,6 @@ DEEPSEEK_MODEL = "deepseek-chat"
 
 GITHUB_PAT = os.environ.get("GITHUB_PAT", "")
 GITHUB_API = "https://api.github.com"
-
-# Web search — Google Custom Search API (free 100 queries/day)
-# Create CSE: https://programmablesearchengine.google.com/
-# Get API key: https://console.cloud.google.com/apis/credentials
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "referai.db")
 
@@ -11306,13 +11287,6 @@ def cosine_similarity(left, right):
     left_norm = sum(value * value for value in left_vector.values()) ** 0.5
     right_norm = sum(value * value for value in right_vector.values()) ** 0.5
     return round(dot / max(left_norm * right_norm, 1), 3)
-
-
-def rank_keywords(source, target, limit=5):
-    source_tokens = set(text_tokens(source))
-    target_tokens = [token for token in text_tokens(target) if token not in source_tokens]
-    ranked = sorted(set(target_tokens), key=lambda token: target_tokens.count(token), reverse=True)
-    return ranked[:limit]
 
 
 def free_llm_generate(prompt, timeout=1.0):
@@ -11528,11 +11502,10 @@ def parse_live_job(job_url):
     job["phones"] = scraped.get("phones", [])
     job["company_url"] = scraped.get("company_url")
     job["contact_routes"] = build_contact_routes(job)
-    job["profiles"] = search_public_profiles(job)
+    job["profiles"] = search_candidate_profiles(job)
     job["extraction_notes"] = extraction_notes
     job["is_live_extract"] = True
     return job
-
 
 
 def fetch_public_search(query):
@@ -11553,14 +11526,6 @@ def fetch_brave_search(query):
     )
     with urlopen(req, timeout=8) as response:
         return response.read().decode("utf-8", errors="ignore")
-
-
-def decode_result_url(url):
-    if "uddg=" in url:
-        encoded = re.search(r"uddg=([^&]+)", url)
-        if encoded:
-            return unquote(encoded.group(1))
-    return html.unescape(url)
 
 
 def decode_js_string(value):
@@ -11606,25 +11571,6 @@ def profile_company_from_title(title):
 def company_slug(company):
     slug = re.sub(r"[^a-z0-9]+", "-", (company or "").lower()).strip("-")
     return slug
-
-
-def company_page_candidates(job):
-    urls = []
-    if job.get("company_url"):
-        urls.append(job["company_url"])
-    slug = company_slug(job.get("company"))
-    if slug:
-        urls.extend(
-            [
-                f"https://www.linkedin.com/company/{slug}",
-                f"https://in.linkedin.com/company/{slug}",
-            ]
-        )
-    deduped = []
-    for url in urls:
-        if url and url not in deduped:
-            deduped.append(url)
-    return deduped
 
 
 def score_profile(profile, job):
@@ -11732,8 +11678,6 @@ def is_company_employee_section_profile(profile, job):
 def enrich_candidate_profile(profile, job):
     text = " ".join([profile.get("headline", ""), profile.get("summary", "")])
     profile["linkedin_handle"] = linkedin_handle(profile.get("linkedin_url"))
-    profile["location"] = infer_profile_location(text)
-    profile["skills"] = candidate_skill_tags(profile, job)
     profile["profile_image_url"] = profile.get("profile_image_url") or avatar_url(profile.get("name"))
     try:
         page = fetch_job_page(profile["linkedin_url"])
@@ -11786,102 +11730,6 @@ def score_candidate_profile(profile, job):
     if not reasons:
         reasons.append("Public profile has partial role context")
     return max(1, min(98, score)), reasons[:4]
-
-
-def extract_company_employee_profiles(job):
-    profiles = []
-    seen = set()
-    company = job.get("company") or ""
-    for company_url in company_page_candidates(job):
-        try:
-            page = fetch_job_page(company_url)
-        except (HTTPError, URLError, TimeoutError, ValueError):
-            continue
-        marker = f"Employees at {company}"
-        start = page.find(marker)
-        section = page[start : start + 16000] if start >= 0 else page
-        for match in re.finditer(
-            r'<a href="([^"]*linkedin\.com/in/[^"]+)"[^>]*data-tracking-control-name="org-employees"[^>]*>(.*?)</a>',
-            section,
-            flags=re.I | re.S,
-        ):
-            linkedin_url = clean_linkedin_url(match.group(1))
-            if linkedin_url in seen:
-                continue
-            inner = match.group(2)
-            text = clean_text(inner)
-            image_match = re.search(r'data-delayed-url="([^"]+)"', inner)
-            profile = {
-                "id": f"profile_{len(profiles) + 1}",
-                "name": text or "LinkedIn profile",
-                "headline": f"Employee at {company}",
-                "summary": f"Visible in the Employees at {company} section on LinkedIn.",
-                "company": company,
-                "linkedin_url": linkedin_url,
-                "email": None,
-                "phone": None,
-                "profile_image_url": html.unescape(image_match.group(1)) if image_match else None,
-                "source": "LinkedIn company employee section",
-            }
-            profile["match_score"], profile["match_reasons"] = score_profile(profile, job)
-            profiles.append(profile)
-            seen.add(linkedin_url)
-    return profiles
-
-
-def extract_search_profiles(job, existing_urls):
-    company = job.get("company") or ""
-    role = job.get("role") or ""
-    queries = [
-        f'site:linkedin.com/in "{company}" "{role}"',
-        f'site:linkedin.com/in "{company}" recruiter',
-        f'site:linkedin.com/in "{company}" founder',
-        f'site:linkedin.com/in "{company}" "business development"',
-        f'site:linkedin.com/in "{company}"',
-    ]
-    profiles = []
-    seen = set(existing_urls)
-    for query in queries:
-        try:
-            page = fetch_public_search(query)
-        except (HTTPError, URLError, TimeoutError, ValueError):
-            continue
-        for item in re.finditer(r"<item>(.*?)</item>", page, flags=re.I | re.S):
-            block = item.group(1)
-            title_match = re.search(r"<title>(.*?)</title>", block, flags=re.I | re.S)
-            link_match = re.search(r"<link>(.*?)</link>", block, flags=re.I | re.S)
-            description_match = re.search(r"<description>(.*?)</description>", block, flags=re.I | re.S)
-            if not link_match:
-                continue
-            url = clean_linkedin_url(clean_text(link_match.group(1)))
-            if "linkedin.com/in/" not in url or url in seen:
-                continue
-            title = re.sub(r"\s*\|\s*LinkedIn.*$", "", clean_text(title_match.group(1) if title_match else "LinkedIn profile"), flags=re.I)
-            description = clean_text(description_match.group(1) if description_match else "")
-            name = title.split(" - ")[0].strip() or "LinkedIn profile"
-            headline = " - ".join(title.split(" - ")[1:]).strip() or description[:140] or f"Public LinkedIn result related to {company}"
-            profile = {
-                "id": f"profile_search_{len(profiles) + 1}",
-                "name": name,
-                "headline": headline,
-                "summary": description or f"Public search result mentioning {company}.",
-                "company": company,
-                "linkedin_url": url,
-                "email": None,
-                "phone": None,
-                "profile_image_url": None,
-                "source": "Public web search result",
-            }
-            profile["match_score"], profile["match_reasons"] = score_profile(profile, job)
-            profiles.append(profile)
-            seen.add(url)
-            if len(profiles) >= 8:
-                return profiles
-    return profiles
-
-
-def search_public_profiles(job):
-    return search_candidate_profiles(job)
 
 
 def candidate_search_queries(job):
@@ -12089,16 +11937,6 @@ def build_contact_routes(job):
     return routes
 
 
-def live_job_response(job):
-    return {
-        "job": job,
-        "matches": [],
-        "contacts": job.get("contact_routes") or build_contact_routes(job),
-        "profiles": job.get("profiles", []),
-        "notice": "This is a live job, so ReferAI is not showing seeded demo candidates or fake referrers. Use the real job source or LinkedIn search routes to contact actual people.",
-    }
-
-
 def find_user(user_id):
     row = db_query_one("SELECT * FROM users WHERE id=?", (user_id,))
     return _deserialize_user(row) if row else None
@@ -12142,7 +11980,6 @@ def registered_employees():
     return [_deserialize_user(r) for r in db_query("SELECT * FROM users")]
 
 
-
 def user_profile(user):
     skills = user.get("skills", [])
     if isinstance(skills, str):
@@ -12171,10 +12008,6 @@ def user_profile(user):
     }
 
 
-
-
-
-
 def filter_profiles(profiles, search="", skill="", role=""):
     search_tokens = public_text_tokens(search)
     skill_text = (skill or "").lower()
@@ -12195,12 +12028,6 @@ def filter_profiles(profiles, search="", skill="", role=""):
     return filtered
 
 
-
-
-
-
-
-
 def find_job(job_id):
     if not job_id:
         return None
@@ -12208,30 +12035,10 @@ def find_job(job_id):
     return _deserialize_job(row) if row else None
 
 
-
-
-
 def company_matches(left, right):
     left_tokens = {token for token in re.findall(r"[a-z0-9]+", (left or "").lower()) if len(token) > 2}
     right_tokens = {token for token in re.findall(r"[a-z0-9]+", (right or "").lower()) if len(token) > 2}
     return bool(left_tokens and right_tokens and left_tokens.intersection(right_tokens))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @app.route("/")
@@ -12369,7 +12176,6 @@ def user_directory():
     })
 
 
-
 @app.route("/api/connections", methods=["GET", "POST"])
 def connections():
     if request.method == "GET":
@@ -12409,9 +12215,6 @@ def connections():
         (conn["id"], conn["user_id"], conn["employee_id"], conn["connection_type"], conn["created_at"]),
     )
     return jsonify({"connection": conn, "created": True}), 201
-
-
-
 
 
 def _gh_request(path):
@@ -12484,8 +12287,6 @@ _SUBSIDIARY_TO_ORG = {
     "shazam":           "apple",
     # Google → Fitbit
     "fitbit":           "google",
-    # Other notable ones
-    "instagram":        "facebook",
 }
 
 # Step 3: Canonical company name (slug form) → GitHub org.
@@ -13348,7 +13149,6 @@ def career_companion():
     }})
 
 
-
 @app.route("/api/proof/submit", methods=["POST"])
 def submit_proof():
     payload = request.get_json(silent=True) or {}
@@ -13442,7 +13242,6 @@ def decide_referral(request_id):
     )
     referral_request = {**referral_request, "decision": decision, "notes": new_notes, "status": new_status, "updated_at": updated_at}
     return jsonify({"request": hydrate_request(referral_request)})
-
 
 
 @app.route("/api/generate-message", methods=["POST"])
