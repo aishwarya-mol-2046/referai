@@ -64,13 +64,15 @@ function App() {
       theme={theme}
       onToggleTheme={toggleTheme}
     >
-      {page === "profile" ? (
-        <Profile user={user} onUserUpdate={handleUserUpdate} />
-      ) : page === "jobs" ? (
-        <Jobs user={user} onFindReferrer={(desc) => { setPendingJobDesc(desc); setPage("opportunities"); }} />
-      ) : (
+      <div className={page === "opportunities" ? "" : "hidden"}>
         <Student user={user} pendingJobDesc={pendingJobDesc} onClearPendingJobDesc={() => setPendingJobDesc("")} />
-      )}
+      </div>
+      <div className={page === "jobs" ? "" : "hidden"}>
+        <Jobs user={user} onFindReferrer={(desc) => { setPendingJobDesc(desc); setPage("opportunities"); }} />
+      </div>
+      <div className={page === "profile" ? "" : "hidden"}>
+        <Profile user={user} onUserUpdate={handleUserUpdate} />
+      </div>
     </Layout>
   );
 }
