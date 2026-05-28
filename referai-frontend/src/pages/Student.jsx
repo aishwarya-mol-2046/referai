@@ -160,6 +160,7 @@ const Student = ({ user }) => {
       </div>
 
       {tab === "referrers" && (
+      <>
       <section className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.75fr)]">
         <div>
           <h2 className="text-3xl font-black tracking-tight text-main md:text-5xl">Find the right referrer.</h2>
@@ -469,6 +470,7 @@ const Student = ({ user }) => {
           </div>
         ) : null}
       </section>
+      </>
       )}
 
       {tab === "jobs" && (
