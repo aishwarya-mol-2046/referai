@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Layout from "./components/common/Layout";
 import Auth from "./pages/Auth";
+import Jobs from "./pages/Jobs";
 import Landing from "./pages/Landing";
 import Profile from "./pages/Profile";
 import Student from "./pages/Student";
@@ -9,6 +10,7 @@ function App() {
   const [view, setView] = useState("landing");
   const [authMode, setAuthMode] = useState("login");
   const [page, setPage] = useState("opportunities");
+  const [pendingJobDesc, setPendingJobDesc] = useState("");
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem("referai-theme") || "light");
 
@@ -62,9 +64,13 @@ function App() {
       theme={theme}
       onToggleTheme={toggleTheme}
     >
-      {page === "profile"
-        ? <Profile user={user} onUserUpdate={handleUserUpdate} />
-        : <Student user={user} />}
+      {page === "profile" ? (
+        <Profile user={user} onUserUpdate={handleUserUpdate} />
+      ) : page === "jobs" ? (
+        <Jobs user={user} onFindReferrer={(desc) => { setPendingJobDesc(desc); setPage("opportunities"); }} />
+      ) : (
+        <Student user={user} pendingJobDesc={pendingJobDesc} onClearPendingJobDesc={() => setPendingJobDesc("")} />
+      )}
     </Layout>
   );
 }

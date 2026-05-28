@@ -1,6 +1,7 @@
 const navByRole = {
   employee: [
     { id: "opportunities", label: "Opportunities", hint: "Find referrers for your target role" },
+    { id: "jobs", label: "Browse Jobs", hint: "Search job listings" },
     { id: "profile", label: "Profile", hint: "Skills, interests, resume upload" },
   ],
 };

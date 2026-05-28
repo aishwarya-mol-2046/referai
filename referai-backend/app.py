@@ -13364,26 +13364,33 @@ def update_profile():
 
 
 def fetch_job_recommendations(user, num_results=10, country="in", date_posted="month",
-                              remote_only=False, role_override=""):
+                              remote_only=False, role_override="", company_override=""):
     """Search JSearch for jobs matching a user's target role, skills, and company interests."""
     if not RAPIDAPI_KEY:
         return []
 
     target_role = role_override or (user.get("target_role") or user.get("current_role") or "").strip()
-    skills = jl(user.get("skills", "[]"))[:3]
-    target_companies = jl(user.get("target_companies", "[]"))
 
-    if not target_role:
+    if not target_role and not company_override:
         return []
 
-    skill_hint = " ".join(skills[:2]) if skills else ""
-    company_hint = f"at {target_companies[0]}" if target_companies else ""
-    query = " ".join(filter(None, [target_role, skill_hint, company_hint]))
+    if target_role and company_override:
+        # Specific: role + company. JSearch responds well to "X at Y" text pattern.
+        query = f"{target_role} at {company_override}"
+    elif target_role:
+        # Broad role search with a skill hint
+        skill_hint = " ".join(jl(user.get("skills", "[]"))[:2])
+        query = " ".join(filter(None, [target_role, skill_hint]))
+    else:
+        # Company-only — "software engineer at X" returns far better results than
+        # just "X" (tested: bare company name returns unrelated employers ~90% of results)
+        query = f"software engineer at {company_override}"
 
+    # Fetch 2 pages so post-filtering has more candidates to choose from
     p = {
         "query":      query,
         "page":       "1",
-        "num_pages":  "1",
+        "num_pages":  "2" if company_override else "1",
         "country":    country,
         "language":   "en",
         "date_posted": date_posted,
@@ -13404,6 +13411,14 @@ def fetch_job_recommendations(user, num_results=10, country="in", date_posted="m
         raw_jobs = data.get("data") or []
     except Exception:
         return []
+
+    # Post-filter: when a specific company was requested, drop results that
+    # don't mention it in the employer_name field.
+    if company_override:
+        raw_jobs = [
+            j for j in raw_jobs
+            if company_override.lower() in (j.get("employer_name") or "").lower()
+        ]
 
     results = []
     for jr in raw_jobs[:num_results]:
@@ -13443,6 +13458,7 @@ def job_recommendations():
     date_posted = request.args.get("date_posted", "month")
     remote_only = request.args.get("remote_only", "false").lower() == "true"
     role        = request.args.get("role", "").strip()
+    company     = request.args.get("company", "").strip()
 
     jobs = fetch_job_recommendations(
         user,
@@ -13450,6 +13466,7 @@ def job_recommendations():
         date_posted=date_posted,
         remote_only=remote_only,
         role_override=role,
+        company_override=company,
     )
     return jsonify({"jobs": jobs, "query_role": role or user.get("target_role") or user.get("current_role")})
 

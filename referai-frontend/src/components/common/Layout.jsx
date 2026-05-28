@@ -2,7 +2,7 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 
 const mobileItemsByRole = {
-  employee: [["opportunities", "Jobs"], ["profile", "Profile"]],
+  employee: [["opportunities", "Opportunities"], ["jobs", "Browse Jobs"], ["profile", "Profile"]],
 };
 
 const Layout = ({ children, setPage, currentPage, user, onLogout, theme, onToggleTheme }) => {

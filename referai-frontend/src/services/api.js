@@ -91,8 +91,8 @@ export const uploadResume = (file) => {
     });
 };
 
-export const getJobRecommendations = ({ userId, country = "in", datePosted = "month", remoteOnly = false, role = "" }) => {
-  const params = new URLSearchParams({ user_id: userId, country, date_posted: datePosted, remote_only: remoteOnly, role });
+export const getJobRecommendations = ({ userId, country = "in", datePosted = "month", remoteOnly = false, role = "", company = "" }) => {
+  const params = new URLSearchParams({ user_id: userId, country, date_posted: datePosted, remote_only: remoteOnly, role, company });
   return request(`/api/jobs/recommendations?${params}`);
 };
 
