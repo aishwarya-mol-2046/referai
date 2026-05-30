@@ -1,8 +1,10 @@
+import BrandLogo from "./BrandLogo";
+
 const navByRole = {
   employee: [
-    { id: "opportunities", label: "Opportunities", hint: "Find referrers for a role" },
-    { id: "jobs",          label: "Browse Jobs",   hint: "Search job listings" },
-    { id: "profile",       label: "Profile",       hint: "Skills, resume, preferences" },
+    { id: "opportunities", label: "Find Intros", hint: "Match roles to referrers" },
+    { id: "jobs",          label: "Job Search",   hint: "Discover openings" },
+    { id: "profile",       label: "Profile",      hint: "Proof, targets, resume" },
   ],
 };
 
@@ -10,17 +12,9 @@ const Sidebar = ({ setPage, currentPage, user }) => {
   const navItems = navByRole[user?.role] || navByRole.employee;
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-app bg-[var(--surface)] px-4 py-6 lg:flex lg:flex-col">
+    <aside className="app-sidebar sticky top-0 hidden h-screen w-64 shrink-0 border-r border-app px-4 py-6 lg:flex lg:flex-col">
       {/* Brand */}
-      <div className="mb-8 flex items-center gap-3 px-2">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-xs font-black text-white">
-          R
-        </div>
-        <div>
-          <p className="text-sm font-black tracking-tight text-main">ReferAI</p>
-          <p className="text-[10px] text-muted">Referral intelligence</p>
-        </div>
-      </div>
+      <BrandLogo className="mb-8 px-2" />
 
       {/* Nav */}
       <nav className="flex-1 space-y-1">
@@ -32,7 +26,7 @@ const Sidebar = ({ setPage, currentPage, user }) => {
               onClick={() => setPage(item.id)}
               className={`group relative w-full rounded-lg px-3 py-2.5 text-left transition-all ${
                 active
-                  ? "bg-[rgb(from_var(--primary)_r_g_b_/_0.1)] text-main"
+                  ? "bg-[var(--primary-soft)] text-main"
                   : "text-muted hover:bg-[var(--surface-soft)] hover:text-main"
               }`}
             >

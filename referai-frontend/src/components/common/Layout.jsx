@@ -3,8 +3,8 @@ import Sidebar from "./Sidebar";
 
 const mobileItemsByRole = {
   employee: [
-    ["opportunities", "Opportunities"],
-    ["jobs",          "Browse Jobs"],
+    ["opportunities", "Find Intros"],
+    ["jobs",          "Job Search"],
     ["profile",       "Profile"],
   ],
 };

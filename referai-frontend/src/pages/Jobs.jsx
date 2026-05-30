@@ -240,15 +240,24 @@ const Jobs = ({ user, onFindReferrer }) => {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
-      <div className="mb-8">
-        <h2 className="text-3xl font-black tracking-tight text-main md:text-5xl">Browse Jobs.</h2>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-          Pick roles, companies, and countries — then hit Search. Leave roles empty to auto-select from your profile.
-        </p>
+      <div className="jobs-hero mb-8">
+        <div className="page-intro">
+          <p className="text-xs font-black uppercase text-muted">Opportunity discovery</p>
+          <h2 className="mt-2 text-3xl font-black tracking-tight text-main md:text-5xl">Find roles worth asking about.</h2>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
+            Search openings by role, company, location, and work style. Send any promising job straight into ReferIn to identify the right referrer.
+          </p>
+        </div>
+
+        <div className="jobs-hero-card">
+          <p>Profile signal</p>
+          <strong>{user?.skills?.slice(0, 3).join(" · ") || "Skills guide search"}</strong>
+          <span>When no role is selected, ReferIn picks likely roles from your profile and uses them as the starting point.</span>
+        </div>
       </div>
 
       {/* Filter panel */}
-      <div className="surface-flat mb-6 space-y-6 p-5">
+      <div className="job-search-panel mb-6 space-y-6 p-5">
 
         {/* Role chips */}
         <div>
@@ -325,25 +334,46 @@ const Jobs = ({ user, onFindReferrer }) => {
       {/* Auto-role notice */}
       {!loading && searched && autoRoles.length > 0 && (
         <p className="mb-4 text-xs text-muted">
-          Roles auto-selected from your profile — deselect or add more, then search again.
+          ReferIn selected roles from your profile. Adjust them anytime and search again.
         </p>
       )}
 
       {/* Results */}
       {loading ? (
-        <p className="text-sm text-muted">Searching…</p>
+        <div className="surface-flat empty-state">
+          <div>
+            <p className="mx-auto h-10 w-10 rounded-lg bg-[var(--primary-soft)] text-center text-2xl font-black leading-10 text-[var(--primary)]">...</p>
+            <p className="mt-3 font-black text-main">Searching relevant openings</p>
+            <p className="mt-1 text-sm text-muted">Matching your filters with roles that can become referral paths.</p>
+          </div>
+        </div>
       ) : !searched ? (
-        <p className="text-sm text-muted">Set filters above and hit Search.</p>
+        <div className="surface-flat empty-state">
+          <div>
+            <p className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-lg font-black text-[var(--primary)]">in</p>
+            <p className="mt-3 font-black text-main">Start with your profile defaults</p>
+            <p className="mt-1 max-w-sm text-sm text-muted">Choose filters, or leave role blank and let your skills suggest the first search.</p>
+          </div>
+        </div>
       ) : jobs.length === 0 ? (
-        <p className="text-sm text-muted">No jobs found. Try different filters or a broader date range.</p>
+        <div className="surface-flat empty-state">
+          <div>
+            <p className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-xl font-black text-[var(--primary)]">0</p>
+            <p className="mt-3 font-black text-main">No roles found</p>
+            <p className="mt-1 max-w-sm text-sm text-muted">Try fewer filters, a broader date range, or a wider country selection.</p>
+          </div>
+        </div>
       ) : (
         <>
-          <p className="mb-4 text-xs font-bold text-muted">{jobs.length} result{jobs.length !== 1 ? "s" : ""}</p>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-bold text-muted">{jobs.length} result{jobs.length !== 1 ? "s" : ""}</p>
+            <p className="rounded-full border border-app bg-[var(--surface)] px-3 py-1 text-xs font-bold text-muted">Send a role to Find Intros for referral matching</p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {jobs.map((rec) => {
               const pct = jobMatchPct(rec.skills);
               return (
-                <div key={rec.job_id} className="surface-flat flex flex-col gap-3 p-4">
+                <div key={rec.job_id} className="job-result-card app-card-polished flex flex-col gap-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       {rec.company_logo ? (
@@ -359,7 +389,7 @@ const Jobs = ({ user, onFindReferrer }) => {
                       </div>
                     </div>
                     {pct !== null && (
-                      <div className="shrink-0 rounded-lg bg-[rgb(33_85_217_/_0.12)] px-2.5 py-1.5 text-center">
+                      <div className="shrink-0 rounded-lg bg-[var(--primary-soft)] px-2.5 py-1.5 text-center">
                         <p className="text-[10px] font-bold text-[var(--primary)]">Match</p>
                         <p className="text-lg font-black leading-none text-[var(--primary-strong)]">{pct}%</p>
                       </div>
@@ -367,7 +397,7 @@ const Jobs = ({ user, onFindReferrer }) => {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5 text-xs text-muted">
-                    {rec.location && <span>📍 {rec.location}</span>}
+                    {rec.location && <span>{rec.location}</span>}
                     {rec.work_arrangement && <span className="capitalize">· {rec.work_arrangement}</span>}
                     {rec.seniority && <span className="capitalize">· {rec.seniority}</span>}
                   </div>
@@ -394,13 +424,13 @@ const Jobs = ({ user, onFindReferrer }) => {
                       rel="noopener noreferrer"
                       className="btn-primary flex-1 py-2 text-center text-xs"
                     >
-                      Apply
+                      View role
                     </a>
                     <button
                       className="btn-secondary px-3 py-2 text-xs"
                       onClick={() => onFindReferrer(`${rec.title} at ${rec.company}\n\n${rec.description}`)}
                     >
-                      Find referrer
+                      Find intro
                     </button>
                   </div>
                   {rec.posted_at && <p className="text-[10px] text-muted">Posted {rec.posted_at}</p>}

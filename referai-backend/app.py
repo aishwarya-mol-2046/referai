@@ -11344,7 +11344,12 @@ def is_valid_phone(phone):
 
 
 def normalize_phone(phone):
-    return (phone or "").replace(" ", "").replace("-", "")
+    cleaned = (phone or "").replace(" ", "").replace("-", "")
+    if re.fullmatch(r"\d{10}", cleaned):
+        return f"+91{cleaned}"
+    if re.fullmatch(r"91\d{10}", cleaned):
+        return f"+{cleaned}"
+    return cleaned
 
 
 def extract_emails(text):
@@ -11370,7 +11375,7 @@ def fetch_job_page(job_url):
     req = Request(
         job_url,
         headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ReferAI/1.0",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ReferIn/1.0",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
     )
@@ -11513,7 +11518,7 @@ def parse_live_job(job_url):
 
 def fetch_public_search(query):
     search_url = f"https://www.bing.com/search?format=rss&q={quote(query)}"
-    req = Request(search_url, headers={"User-Agent": "Mozilla/5.0 ReferAI/1.0"})
+    req = Request(search_url, headers={"User-Agent": "Mozilla/5.0 ReferIn/1.0"})
     with urlopen(req, timeout=8) as response:
         return response.read().decode("utf-8", errors="ignore")
 
@@ -11523,7 +11528,7 @@ def fetch_brave_search(query):
     req = Request(
         search_url,
         headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ReferAI/1.0",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ReferIn/1.0",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
     )
@@ -12046,7 +12051,7 @@ def company_matches(left, right):
 
 @app.route("/")
 def home():
-    return jsonify({"message": "ReferAI backend running", "version": "2.0"})
+    return jsonify({"message": "ReferIn backend running", "version": "2.0"})
 
 
 @app.route("/api/health")
@@ -12229,7 +12234,7 @@ def _gh_request(path):
         "Authorization": f"Bearer {GITHUB_PAT}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "ReferAI/1.0",
+        "User-Agent": "ReferIn/1.0",
     })
     try:
         with urlopen(req, timeout=10) as r:
@@ -13138,7 +13143,7 @@ def career_companion():
     ]
 
     llm = free_llm_generate(
-        f"You are ReferAI career coach. Give 3 concise practical tips for {user.get('name', 'a candidate')} "
+        f"You are ReferIn career coach. Give 3 concise practical tips for {user.get('name', 'a candidate')} "
         f"targeting {job.get('role')} at {job.get('company')}. "
         f"Their skills: {', '.join(list(user_skills)[:5])}. Missing: {', '.join(list(missing)[:3]) or 'none'}."
     )
@@ -13270,7 +13275,7 @@ def generate_message():
     fallback_message = (
         f"Hi {emp_name},\n\n"
         f"I am applying for the {job.get('role', 'this role')} role at {job.get('company', 'your company')}. "
-        f"ReferAI matched me with you as a potential referrer based on your background.\n\n"
+        f"ReferIn matched me with you as a potential referrer based on your background.\n\n"
         f"My key skills are: {user_skills}.\n\n"
         "Would you be open to a quick chat or considering a referral?\n\n"
         f"Thanks,\n{user_name}"

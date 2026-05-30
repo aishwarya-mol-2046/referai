@@ -47,7 +47,7 @@ const Student = ({ user, pendingJobDesc, onClearPendingJobDesc }) => {
       onClearPendingJobDesc?.();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [pendingJobDesc]);
+  }, [pendingJobDesc, onClearPendingJobDesc]);
 
   const currentYear = new Date().getFullYear();
   const userSkillsLower = new Set((user?.skills || []).map((s) => s.toLowerCase()));
@@ -144,37 +144,47 @@ ${account?.name || myName}`;
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
 
       {/* Header + input */}
-      <section className="mb-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(400px,0.7fr)]">
-        <div className="flex flex-col justify-center">
-          <h2 className="text-4xl font-black tracking-tight text-main md:text-5xl">
-            Find the right<br />referrer.
-          </h2>
-          <p className="mt-4 max-w-lg text-base leading-7 text-muted">
-            Paste any job description — we rank employees at that company by how well they can refer you.
-          </p>
-        </div>
-
-        <div className="surface-flat overflow-hidden">
-          <div className="border-b border-app px-5 py-4">
-            <label className="text-sm font-black text-main" htmlFor="job-desc">Job description</label>
-            <p className="mt-0.5 text-xs text-muted">LinkedIn, Greenhouse, Lever — paste the full posting.</p>
+      <section className="mb-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="surface-flat app-elevated overflow-hidden">
+          <div className="section-banner flex flex-col gap-3 border-b border-app px-5 py-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase text-muted">Referral workspace</p>
+              <label className="mt-1 block text-2xl font-black tracking-tight text-main" htmlFor="job-desc">Paste a role and find the warmest path in</label>
+            </div>
+            <span className="badge badge-blue">Role-aware matching</span>
           </div>
           <div className="p-5">
             <textarea
               id="job-desc"
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              className="field min-h-[110px] resize-y text-sm"
-              placeholder="Paste job description here…"
+              className="field min-h-[360px] resize-y text-sm leading-6 md:min-h-[460px]"
+              placeholder="Paste the complete job description, including responsibilities, required skills, company details, location, and any application notes."
             />
             <button
               onClick={analyzeOpportunity}
               disabled={loading}
               className="btn-primary mt-3 w-full py-3 text-sm font-black"
             >
-              {loading ? "Analysing…" : "Find referrers →"}
+              {loading ? "Analysing..." : "Find referrers"}
             </button>
             {error && <p className="mt-3 text-xs font-bold text-rose-500">{error}</p>}
+          </div>
+        </div>
+
+        <div className="surface-flat app-elevated h-fit p-5">
+          <p className="text-sm font-black text-main">What improves your match</p>
+          <div className="mt-4 space-y-3">
+            {[
+              ["Role fit", "Skill overlap, seniority, team context, and job focus."],
+              ["Warm path", "Alumni, coworker, shared company, and shared-skill signals."],
+              ["Message quality", "Specific context that makes the referral request easier to answer."],
+            ].map(([title, body]) => (
+              <div key={title} className="border-b border-app pb-3 last:border-b-0 last:pb-0">
+                <p className="text-sm font-black text-main">{title}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">{body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -246,7 +256,7 @@ ${account?.name || myName}`;
                             {isStudent ? "Student" : emp.seniority}
                           </p>
                         </div>
-                        <div className="shrink-0 rounded-lg bg-[rgb(from_var(--primary)_r_g_b_/_0.1)] px-2.5 py-1.5 text-center">
+                        <div className="shrink-0 rounded-lg bg-[var(--primary-soft)] px-2.5 py-1.5 text-center">
                           <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--primary)]">Match</p>
                           <p className="text-xl font-black leading-tight text-[var(--primary-strong)]">{emp.match_score}%</p>
                         </div>
@@ -277,7 +287,7 @@ ${account?.name || myName}`;
                       onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : emp.id); }}
                     >
                       <span>{commonSkills.length} shared skill{commonSkills.length !== 1 ? "s" : ""}</span>
-                      <span className="text-[var(--faint)]">{isExpanded ? "▲" : "▼"}</span>
+                      <span className="text-[var(--faint)]">{isExpanded ? "Hide" : "Show"}</span>
                     </button>
                     {isExpanded && (
                       <div className="pb-3 flex flex-wrap gap-1.5">
@@ -382,7 +392,7 @@ ${account?.name || myName}`;
                   disabled={!message || detailLoading}
                   className="btn-secondary px-3 py-1.5 text-xs disabled:opacity-40"
                 >
-                  {copied ? "Copied ✓" : "Copy"}
+                  {copied ? "Copied" : "Copy"}
                 </button>
               </div>
 
@@ -403,7 +413,7 @@ ${account?.name || myName}`;
                   onChange={(e) => setMessage(e.target.value)}
                   className="w-full resize-none border-0 bg-transparent px-5 py-4 text-sm leading-7 text-main outline-none"
                   rows={12}
-                  placeholder="Message will appear here…"
+                  placeholder="Message will appear here."
                 />
               )}
 
@@ -413,7 +423,7 @@ ${account?.name || myName}`;
                   disabled={!message || detailLoading || !!requestResult}
                   className="btn-primary px-5 py-2.5 text-sm font-black"
                 >
-                  {requestResult ? "Request sent ✓" : "Send referral request"}
+                  {requestResult ? "Request sent" : "Send referral request"}
                 </button>
                 {requestResult && (
                   <p className="mt-2 text-xs font-bold text-[var(--accent)]">
@@ -426,7 +436,7 @@ ${account?.name || myName}`;
         ) : !matches.length && job ? (
           <div className="surface-flat empty-state">
             <div className="text-center">
-              <p className="text-4xl">🔍</p>
+              <p className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-xl font-black text-[var(--primary)]">?</p>
               <p className="mt-3 font-black text-main">No employees found</p>
               <p className="mt-1 max-w-xs text-sm text-muted">No employees found at this company in the database.</p>
             </div>
@@ -434,7 +444,7 @@ ${account?.name || myName}`;
         ) : !job ? (
           <div className="surface-flat empty-state">
             <div className="text-center">
-              <p className="text-4xl">✉️</p>
+              <p className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-xl font-black text-[var(--primary)]">in</p>
               <p className="mt-3 font-black text-main">Ready when you are</p>
               <p className="mt-1 max-w-xs text-sm text-muted">Paste a job description to see matching referrers.</p>
             </div>

@@ -7,6 +7,7 @@ import Profile from "./pages/Profile";
 import Student from "./pages/Student";
 
 const DARK_THEMES = new Set(["dark", "midnight", "violet"]);
+const THEMES = new Set(["light", "dark", "midnight", "violet", "sand", "forest"]);
 
 function App() {
   const [view, setView] = useState("landing");
@@ -14,16 +15,20 @@ function App() {
   const [page, setPage] = useState("opportunities");
   const [pendingJobDesc, setPendingJobDesc] = useState("");
   const [user, setUser] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem("referai-theme") || "light");
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem("referai-theme");
+    return THEMES.has(savedTheme) ? savedTheme : "light";
+  });
 
   useEffect(() => {
     const root = document.documentElement;
+    const nextTheme = THEMES.has(theme) ? theme : "light";
     // Remove all known theme classes then apply new one
     root.classList.remove("light", "dark", "midnight", "violet", "sand", "forest");
-    root.classList.add(theme);
+    root.classList.add(nextTheme);
     // Keep Tailwind's `dark` class in sync so dark: variants work
-    root.classList.toggle("dark", DARK_THEMES.has(theme));
-    localStorage.setItem("referai-theme", theme);
+    root.classList.toggle("dark", DARK_THEMES.has(nextTheme));
+    localStorage.setItem("referai-theme", nextTheme);
   }, [theme]);
 
   const openAuth = (mode) => { setAuthMode(mode); setView("auth"); };
