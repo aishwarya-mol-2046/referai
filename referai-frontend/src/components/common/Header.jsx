@@ -1,7 +1,7 @@
 const PAGE_TITLES = {
-  opportunities: "Find Referrers",
-  jobs:          "Browse Jobs",
-  profile:       "Profile",
+  opportunities: "Find Intros",
+  jobs:          "Job Search",
+  profile:       "Referral Profile",
 };
 
 const THEMES = [
@@ -17,7 +17,7 @@ const Header = ({ currentPage, user, onLogout, theme, onSetTheme }) => {
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-app bg-[var(--surface)]/90 px-4 backdrop-blur md:px-8">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted">ReferAI</p>
+        <p className="text-[10px] font-black uppercase text-muted">Referral network</p>
         <h1 className="text-sm font-black text-main md:text-base">{PAGE_TITLES[currentPage] ?? currentPage}</h1>
       </div>
 

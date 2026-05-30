@@ -11,7 +11,7 @@ const request = async (path, options = {}) => {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || "ReferAI service request failed");
+    throw new Error(error.error || "ReferIn service request failed");
   }
 
   return res.json();
