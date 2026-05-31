@@ -441,15 +441,15 @@ ${account?.name || myName}`;
               <p className="mt-1 max-w-xs text-sm text-muted">No employees found at this company in the database.</p>
             </div>
           </div>
-        ) : !job ? (
+        ) : (!job && jobDescription.trim() ? (
           <div className="surface-flat empty-state">
             <div className="text-center">
               <p className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-xl font-black text-[var(--primary)]">in</p>
-              <p className="mt-3 font-black text-main">Ready when you are</p>
-              <p className="mt-1 max-w-xs text-sm text-muted">Paste a job description to see matching referrers.</p>
+              <p className="mt-3 font-black text-main">Paste received</p>
+              <p className="mt-1 max-w-xs text-sm text-muted">Job description detected — click "Find referrers" to analyze.</p>
             </div>
           </div>
-        ) : null}
+        ) : null)}
       </section>
     </div>
   );
