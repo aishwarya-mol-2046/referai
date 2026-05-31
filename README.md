@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="ReferIn — find the person who can refer you in" width="100%" />
+  <img src="assets/banner.png" alt="ReferIn — find the person who can refer you in" width="100%" />
 </p>
 
 <p align="center">
