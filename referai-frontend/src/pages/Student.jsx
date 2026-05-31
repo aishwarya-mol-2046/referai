@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import AutoGrowTextarea from "../components/AutoGrowTextarea";
 import {
   createReferralRequest,
   generateMessage,
@@ -228,12 +229,14 @@ ${account?.name || myName}`;
             <p className="mt-0.5 text-xs text-muted">LinkedIn, Greenhouse, Lever. Paste the full posting.</p>
           </div>
           <div className="p-5">
-            <textarea
+            <AutoGrowTextarea
               id="job-desc"
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              className="field min-h-[110px] resize-y text-sm"
-              placeholder="Paste job description here…"
+              className="field text-sm leading-6"
+              minHeight={170}
+              maxHeight={560}
+              placeholder="Paste the full job description here. The box grows as you type…"
             />
             <button
               onClick={analyzeOpportunity}
