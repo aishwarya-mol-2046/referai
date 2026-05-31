@@ -152,9 +152,22 @@ grotesk (Hanken Grotesk / Calibri), labels & numbers in mono (JetBrains Mono).
 
 ---
 
+## Screenshots (in `presentation/screens/`)
+Real captures from the running app — drop these onto the matching slides in Canva.
+
+| File | Use on slide | Shows |
+|---|---|---|
+| `01-landing.png` | 3 (Solution) | Landing page incl. the hero match card |
+| `03-find-referrers.png` | 4, 5, 6, 7 | Full flow: paste box + parsed job, ranked results, "Live from GitHub", match %, and the message panel |
+| `02-opportunities-contacted.png` | 8 (Tracking) | "Already reached out" panel + how-it-works |
+| `06-resume-extraction.png` | 9 (Auto resume) | DeepSeek extraction-preview modal |
+| `05-profile.png` | 9 (Auto resume) | Profile page with avatar + editable fields |
+| `07-jobs-filters.png` | 10 (Job search) | Browse Jobs filter panel |
+| `08-jobs-results.png` | 10 (Job search) | Live job result cards with Apply / Find referrer |
+| `09-theme-dark.png`, `10-theme-violet.png`, `11-theme-sand.png` | 11 (Experience) | Same screen across themes (place beside the light shots) |
+
 ## Before you submit
 - **Fill the placeholders:** live URL / QR (slides 3–15), and each teammate's credential (slide 15).
-- **Capture the 📸 screenshots** from the running app: landing hero card, the Find Referrers flow (paste box, ranked list, message panel, contacted panel), the resume → profile flow, Browse Jobs, and the theme switcher.
 - **Keep numbers defensible:** the "80%" / "4×" referral stats are widely cited — soften to "studies suggest" if challenged; the product itself is the proof.
 
 ## What's actually built (so claims hold up)
