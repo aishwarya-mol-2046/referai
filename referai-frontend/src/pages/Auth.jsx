@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Logo from "../components/common/Logo";
+import Terms from "./Terms";
 import { authLogin, authSignup, startPhoneAuth } from "../services/api";
 import {
   PASSWORD_RULES,
@@ -26,6 +27,8 @@ const Auth = ({ mode, onSubmit, onBack, theme, onToggleTheme }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false });
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const isSignup = authMode === "signup";
 
@@ -45,6 +48,7 @@ const Auth = ({ mode, onSubmit, onBack, theme, onToggleTheme }) => {
     if (isSignup && !pw.meetsMinimum) { setError("Password must be at least 8 characters."); return; }
     if (isSignup && !form.name.trim()) { setError("Full name is required."); return; }
     if (isSignup && !form.phone.trim()) { setError("Phone number is required. We use it to verify your identity."); return; }
+    if (isSignup && !agreedToTerms) { setError("Please accept the Terms and Conditions to continue."); return; }
     setLoading(true);
     try {
       const response = isSignup ? await authSignup(form) : await authLogin(form);
@@ -76,6 +80,12 @@ const Auth = ({ mode, onSubmit, onBack, theme, onToggleTheme }) => {
 
   return (
     <div className="page-bg flex min-h-screen flex-col">
+      {showTerms && (
+        <Terms
+          onClose={() => setShowTerms(false)}
+          onAgree={() => { setAgreedToTerms(true); setShowTerms(false); }}
+        />
+      )}
       <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 md:px-8">
         <button onClick={onBack} className="group">
           <Logo size={40} wordClassName="text-xl" className="group-hover:[&_span:first-child]:-rotate-6 [&_span:first-child]:transition-transform" />
@@ -207,6 +217,22 @@ const Auth = ({ mode, onSubmit, onBack, theme, onToggleTheme }) => {
                   <Field label="Phone OTP">
                     <input className="field" value={form.otp} placeholder="6-digit code" onChange={set("otp")} />
                   </Field>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-sm)] border border-app soft p-3.5">
+                    <input
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                    />
+                    <span className="text-sm leading-6 text-muted">
+                      I agree to ReferIn's{" "}
+                      <button type="button" onClick={() => setShowTerms(true)} className="font-bold text-[var(--primary)] underline-offset-2 hover:underline">
+                        Terms and Conditions
+                      </button>
+                      .
+                    </span>
+                  </label>
                 </>
               )}
             </div>
