@@ -1,6 +1,6 @@
-# ReferAI
+# ReferIn
 
-ReferAI helps job-seekers find the right internal referrer at their target company. Paste a job description, get a ranked list of employees whose background aligns with the role, generate a personalised outreach message, and send a referral request — all in one place.
+ReferIn helps job-seekers find the right internal referrer at their target company. Paste a job description, get a ranked list of employees whose background aligns with the role, generate a personalised outreach message, and send a referral request — all in one place.
 
 ---
 
