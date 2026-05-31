@@ -1,123 +1,327 @@
-# ReferAI
+# ReferIn
 
-ReferAI helps job-seekers find the right internal referrer at their target company. Paste a job description, get a ranked list of employees whose background aligns with the role, generate a personalised outreach message, and send a referral request — all in one place.
-
----
-
-## What it does
-
-- **Parse any job description** — paste raw text from LinkedIn, Greenhouse, Lever, Workday, or anywhere; role, company, skills, tech stack, and location are extracted automatically via DeepSeek
-- **Live employee discovery** — searches GitHub org members in real time; supplements with AI-suggested profiles from DeepSeek's training knowledge for companies with low GitHub presence
-- **Source badge** — results are labelled "Live from GitHub", "AI suggested", or "From database" so you always know where the data came from
-- **Rank employees by match score** — skill overlap + shared background between the job, employee profile, and your own resume
-- **Contact info on every card** — GitHub profile, LinkedIn, and email links extracted directly from public profiles
-- **Profile enrichment** — upload a PDF/DOCX resume or fill in skills, education, and experience manually; match scores update immediately
-- **AI career companion** — skill gap analysis and personalised coaching tips (requires Ollama locally; works without it too)
-- **Referral requests** — send and track requests with reward tracking
+ReferIn helps job seekers find the right internal referrer at their target company. Simply paste a job description, discover employees whose profiles align with the role, generate personalized outreach messages, and manage referral requests — all in one platform.
 
 ---
 
-## Tech stack
+## Overview
+
+Applying online is easy. Getting noticed is hard.
+
+ReferIn bridges the gap between candidates and potential internal referrers by using AI-powered job analysis, employee discovery, profile matching, and outreach assistance.
+
+Whether you're targeting Google, Microsoft, Amazon, Stripe, or startups, ReferIn helps identify employees most likely to provide valuable referrals.
+
+---
+
+## Key Features
+
+### AI Job Description Parsing
+
+Paste job descriptions from:
+
+- LinkedIn
+- Greenhouse
+- Lever
+- Workday
+- Company career portals
+
+ReferIn automatically extracts:
+
+- Company name
+- Role title
+- Required skills
+- Tech stack
+- Experience requirements
+- Location
+- Keywords
+
+Powered by DeepSeek AI.
+
+---
+
+### Smart Employee Discovery
+
+ReferIn searches for relevant employees using:
+
+- GitHub Organization APIs
+- GitHub User Search
+- AI-generated employee recommendations
+- Internal database fallback
+
+This ensures results are available even when companies have limited public GitHub presence.
+
+---
+
+### Match Scoring Engine
+
+Employees are ranked using:
+
+- Skill overlap
+- Resume alignment
+- Education similarity
+- Experience relevance
+- TF-IDF similarity scoring
+- Skill synonym mapping
+
+This helps surface the most relevant referrers first.
+
+---
+
+### Source Transparency
+
+Every recommendation includes a source label:
+
+- Live from GitHub
+- AI Suggested
+- From Database
+
+Users always know where recommendations came from.
+
+---
+
+### Resume & Profile Enrichment
+
+Candidates can:
+
+- Upload PDF resumes
+- Upload DOCX resumes
+- Add skills manually
+- Update education details
+- Add professional experience
+
+Match scores refresh automatically whenever profile information changes.
+
+---
+
+### Contact Information Discovery
+
+Employee cards may include:
+
+- GitHub profile links
+- LinkedIn profile links
+- Public email addresses
+
+When available from public sources.
+
+---
+
+### AI Career Companion
+
+Optional AI assistant powered by Ollama.
+
+Provides:
+
+- Skill gap analysis
+- Career guidance
+- Learning recommendations
+- Resume improvement suggestions
+- Interview preparation insights
+
+---
+
+### Referral Request Management
+
+Users can:
+
+- Generate referral messages
+- Send referral requests
+- Track request status
+- Manage outreach history
+- Monitor referral rewards
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
-|---|---|
+|---------|------------|
 | Frontend | React 19, Vite, Tailwind CSS |
-| Backend | Python 3.10+, Flask, SQLite |
-| Employee discovery | GitHub REST API (live org/user search) + DeepSeek (AI-suggested profiles) |
-| Job parsing & resume extraction | DeepSeek (`deepseek-chat`) |
-| AI coaching | Ollama (optional, local — `llama3.2:3b` default) |
-| Matching | Skill synonym map + TF-IDF cosine similarity (pure Python, no ML deps) |
+| Backend | Python 3.10+, Flask |
+| Database | SQLite |
+| Job Parsing | DeepSeek |
+| Resume Extraction | DeepSeek |
+| Employee Discovery | GitHub REST API + DeepSeek |
+| AI Coaching | Ollama |
+| Matching Engine | TF-IDF + Skill Similarity |
 
 ---
 
-## Project structure
+## Project Structure
 
-```
-referai/
-├── referai-backend/
-│   ├── app.py              # All Flask routes, DB schema, matching logic, seed data
-│   ├── .env.example        # Environment variable reference — copy to .env and fill in
-│   ├── referai.db          # SQLite database (auto-created on first run, gitignored)
-│   └── requirements.txt    # Python deps (Flask, flask-cors, pdfplumber, python-docx)
+```text
+referin/
 │
-├── referai-frontend/
+├── referin-backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── referin.db
+│
+├── referin-frontend/
 │   ├── src/
-│   │   ├── pages/          # Landing, Auth, Student (main app), Profile (settings)
-│   │   ├── components/     # TagInput, AutocompleteInput, ExtractionPreview, Layout, etc.
-│   │   └── services/api.js # All fetch calls to the backend
+│   ├── public/
 │   ├── package.json
 │   └── vite.config.js
 │
-├── to-do.md                # Feature roadmap (statuses kept up to date)
-└── how-to-run.md           # Step-by-step setup guide
+├── how-to-run.md
+├── to-do.md
+└── README.md
 ```
 
 ---
 
-## Seed data
+## Seed Data
 
-The database seeds automatically on first run:
+The application automatically generates demo data on first startup.
 
-- **15 users** — diverse job-seekers from Indian colleges (IIT, BITS, NIT, IIIT, DTU, etc.)
-- **500 employees** — 50 per company across 10 companies (Stripe, Google, Microsoft, Flipkart, Netflix, Amazon, Razorpay, Zepto, Meesho, Swiggy), spread across Engineering, Data/ML, DevOps, Mobile, Security, and Product departments
+### Seed Users
 
-Live search via GitHub and DeepSeek always runs first; the seed DB is only the last-resort fallback.
+15 student profiles from:
+
+- IITs
+- NITs
+- IIITs
+- BITS
+- DTU
+
+### Seed Employees
+
+500 employees distributed across:
+
+- Google
+- Microsoft
+- Amazon
+- Stripe
+- Netflix
+- Razorpay
+- Flipkart
+- Zepto
+- Meesho
+- Swiggy
+
+Departments include:
+
+- Backend Engineering
+- Frontend Engineering
+- Full Stack
+- Data Science
+- Machine Learning
+- DevOps
+- Security
+- Product
 
 ---
 
-## Quick start
+## Quick Start
 
-See **[how-to-run.md](how-to-run.md)** for the full setup guide.
-
-**TL;DR — two terminals:**
+### Backend
 
 ```bash
-# Terminal 1: backend
-cd referai-backend
-cp .env.example .env           # fill in DEEPSEEK_API_KEY and GITHUB_PAT
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt && python app.py
+cd referin-backend
 
-# Terminal 2: frontend
-cd referai-frontend && npm install && npm run dev
+cp .env.example .env
+
+python -m venv venv
+
+source venv/bin/activate
+# Windows:
+# venv\Scripts\activate
+
+pip install -r requirements.txt
+
+python app.py
 ```
 
-Open **http://localhost:5173** and log in with any seed account (e.g. `arjun.sharma@seed.referai` / `referai123`).
+Backend URL:
+
+```text
+http://127.0.0.1:5000
+```
 
 ---
 
-## Seed login credentials
+### Frontend
 
-Any of the 15 seed users can be used to log in. All share the password `referai123`.
+```bash
+cd referin-frontend
 
-| Email | Password |
-|---|---|
-| `arjun.sharma@seed.referai` | `referai123` |
-| `priya.nair@seed.referai` | `referai123` |
-| `rahul.verma@seed.referai` | `referai123` |
+npm install
 
-> Full list: `arjun.sharma`, `priya.nair`, `rahul.verma`, `sneha.patel`, `karthik.rajan`, `ananya.krishnan`, `rohan.mehta`, `divya.iyer`, `vikram.singh`, `meera.subramanian`, `aditya.kumar`, `pooja.desai`, `nikhil.gupta`, `shreya.chatterjee`, `tanvi.shah` — all at `@seed.referai`. Create a new account via the signup page to test with a custom profile.
+npm run dev
+```
 
----
+Frontend URL:
 
-## Environment variables
-
-Set in `referai-backend/.env` (copy from `.env.example`).
-
-| Variable | Required | Purpose |
-|---|---|---|
-| `DEEPSEEK_API_KEY` | **Yes** | Job parsing, resume extraction, AI employee suggestions |
-| `GITHUB_PAT` | **Yes** | Live employee search via GitHub org/user API |
-| `OLLAMA_BASE_URL` | No | Local Ollama server for AI coaching (default: `http://127.0.0.1:11434`) |
-| `OLLAMA_MODEL` | No | Ollama model to use (default: `llama3.2:3b`) |
-| `VITE_API_BASE_URL` | No | Backend URL the frontend points at (default: `http://127.0.0.1:5000`) |
-
-The app runs without `DEEPSEEK_API_KEY` and `GITHUB_PAT` but employee search and job parsing will fall back to the seed database only.
+```text
+http://localhost:5173
+```
 
 ---
 
-## Contributing
+## Environment Variables
 
-Branch off `main`, work on a feature branch, open a PR back to `main`. The active development branch is `Breeti`.
+Create:
 
-See `to-do.md` for planned features and their current status.
+```text
+referin-backend/.env
+```
+
+| Variable | Required | Description |
+|-----------|-----------|-------------|
+| DEEPSEEK_API_KEY | Yes | Job parsing and AI recommendations |
+| GITHUB_PAT | Yes | GitHub employee discovery |
+| OLLAMA_BASE_URL | No | Ollama endpoint |
+| OLLAMA_MODEL | No | Ollama model name |
+| VITE_API_BASE_URL | No | Frontend API URL override |
+
+---
+
+## Demo Credentials
+
+All seed users use:
+
+```text
+Password: referin123
+```
+
+Example:
+
+```text
+arjun.sharma@seed.referin
+referin123
+```
+
+You can also create a new account through the signup page.
+
+---
+
+## Development Workflow
+
+```bash
+git checkout -b feature-name
+
+git add .
+
+git commit -m "Add feature"
+
+git push origin feature-name
+```
+
+Create a Pull Request against:
+
+```text
+main
+```
+
+---
+
+## Future Roadmap
+
+- LinkedIn integrations
+- Email outreach automation
+- Referral analytics
+- Recruiter dashboard
+- Team collaboration
+- Multi-model ranking engine
+- Application tracking
